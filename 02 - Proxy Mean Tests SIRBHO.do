@@ -12,8 +12,8 @@
 // save "Personas.dta", replace
 
 
-use "D:\World Bank\Honduras PMT benchmark\Personas.dta", replace
-merge m:1 level1id using "D:\World Bank\Honduras PMT benchmark\hogares.dta", force
+use "D:\Datasets\Data Honduras Red Solidaria\ODS - SIRBHO\ODS3_Poblacion_stata.dta", replace
+merge m:1 level1id using "D:\Datasets\Data Honduras Red Solidaria\ODS - SIRBHO\ODS3_Hogares_stata.dta", force
 
 egen hogid = group(level1id numhog)
 bysort hogid: egen orden_min = min(x_00)

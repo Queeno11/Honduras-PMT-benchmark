@@ -5,29 +5,40 @@ use "Data_out\IndicePobrezaMultidimensional", replace
 
 merge 1:1 level1id using "Data_out\pmt.dta", keep(3)
 
+*** MPI
+* Ranking MPI
+gsort -SumIPM
+gen ranking_IPM = _n/_N
+gen pobre_IPM = (SumIPM>=.25)
+gen pobre_IPM_alt = (SumIPM>.25)
+gen pobre_IPM_50 = (ranking_IPM<=.5)
+gen pobre_IPM_75 = (ranking_IPM<=.75)
+gen pobre_IPM_90 = (ranking_IPM<=.90)
+**  83.58 es el % de pobres por IPM (IPM>=.25)
+
+* Deciles
+gen decil_IPM = ceil(ranking_IPM * 10)
+gen quintil_IPM = ceil(ranking_IPM * 5)
+
+// scatter ranking_IPM ranking_PMT
+// heatplot ranking_IPM ranking_PMT
+
 *** PMT
 * Ranking PMT
 sort ingreso_est
 gen ln_ingreso_est = ln(ingreso_est)
 gen ranking_PMT = _n/_N
+gen pobre_PMT = (ranking_PMT<=.8358)
+gen pobre_PMT_50 = (ranking_PMT<=.5)
+gen pobre_PMT_75 = (ranking_PMT<=.75)
+gen pobre_PMT_90 = (ranking_PMT<=.90)
+
 
 * Deciles
 gen decil_PMT = ceil(ranking_PMT * 10)
 gen quintil_PMT = ceil(ranking_PMT * 5)
 
 
-*** MPI
-* Ranking MPI
-gsort -SumIPM
-gen ranking_IPM = _n/_N
-
-* Deciles
-gen decil_IPM = ceil(ranking_IPM * 10)
-gen quintil_IPM = ceil(ranking_IPM * 5)
-
-
-// scatter ranking_IPM ranking_PMT
-// heatplot ranking_IPM ranking_PMT
 
 
 *** Gasto
@@ -56,16 +67,26 @@ replace ranking_YPC = . if has_income==0
 gen decil_YPC = ceil(ranking_YPC * 10)
 gen quintil_YPC = ceil(ranking_YPC * 5)
 
-correlate ranking_IPM ranking_PMT ranking_GPC ranking_YPC
 
-heatplot decil_IPM decil_PMT, bins(10)
-capture graph drop a b c d
-heatplot decil_IPM decil_GPC, bins(10) name(a) cuts(0 .25 .5 .75 1 1.25 1.5 1.75 2 2.25 2.5)
-heatplot decil_IPM decil_YPC, bins(10) name(b) cuts(0 .25 .5 .75 1 1.25 1.5 1.75 2 2.25 2.5)
-heatplot decil_PMT decil_GPC, bins(10) name(c) cuts(0 .25 .5 .75 1 1.25 1.5 1.75 2 2.25 2.5)
-heatplot decil_PMT decil_YPC, bins(10) name(d) cuts(0 .25 .5 .75 1 1.25 1.5 1.75 2 2.25 2.5)
-graph combine a b c d
-graph export "Outputs\heatplots_sirbho_combined.png", width(1500) height(1500) replace
+
+
+***** RESULADOS
+
+
+correlate ranking_IPM ranking_PMT ranking_GPC ranking_YPC
+foreach thresh in "" "_50" "_75" "_90" {
+    tab2xl pobre_PMT`thresh'  pobre_IPM`thresh' using "Outputs/tabs_pobreza_comparacion.xlsx", row(1) col(1) sheet(`thresh')
+	
+}
+
+// heatplot decil_IPM decil_PMT, bins(10)
+// capture graph drop a b c d
+// heatplot decil_IPM decil_GPC, bins(10) name(a) cuts(0 .25 .5 .75 1 1.25 1.5 1.75 2 2.25 2.5)
+// heatplot decil_IPM decil_YPC, bins(10) name(b) cuts(0 .25 .5 .75 1 1.25 1.5 1.75 2 2.25 2.5)
+// heatplot decil_PMT decil_GPC, bins(10) name(c) cuts(0 .25 .5 .75 1 1.25 1.5 1.75 2 2.25 2.5)
+// heatplot decil_PMT decil_YPC, bins(10) name(d) cuts(0 .25 .5 .75 1 1.25 1.5 1.75 2 2.25 2.5)
+// graph combine a b c d
+// graph export "Outputs\heatplots_sirbho_combined.png", width(1500) height(1500) replace
 
 // sample 5
 
