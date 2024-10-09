@@ -1,19 +1,18 @@
-cd "D:\World Bank\Honduras PMT benchmark"
-graph set window fontface "Times New Roman"
+clear all
+global Path = "D:\World Bank\Honduras PMT benchmark"
+global Data_out = "$Path\Data_out"
+global Outputs = "$Path\Outputs"
 
+graph set window fontface "Times New Roman"
 global graph_aspect = "graphregion(color(white)) plotregion(margin(zero))"
 
-
-use "Data_out/basepmt_eph.dta", replace
-
-* FIXME: revisar los 990 que perdemos que onda
-merge 1:1 HOGAR using "Data_out/data_indice_multidimensional_consolidada.dta"
-keep if _merge==3
-drop _merge
+use "$Data_out/preds lasso pmt.dta", replace
+merge 1:1 HOGAR using "$Data_out/Predicts_XGBoost.dta"
 
 ******************************************
 ******    Indicadores de posición   ******
 ******************************************
+gen FACTOR_P = round(FACTOR * TOTPER )
 *** IPM
 rename indice_pobreza_multi SumIPM
 gsort -SumIPM
@@ -33,51 +32,6 @@ gen quintil_IPM = ceil(ranking_IPM * 5)
 // scatter ranking_IPM ranking_PMT
 // heatplot ranking_IPM ranking_PMT
 
-*** PMT
-* Ranking PMT
-sort ingreso_est
-gen ln_ingreso_est = ln(ingreso_est)
-gen ranking_PMT = _n/_N
-gen pobre_PMT = (ranking_PMT<=.3962)
-gen pobre_PMT_25 = (ranking_PMT<=.25)
-gen pobre_PMT_50 = (ranking_PMT<=.5)
-gen pobre_PMT_75 = (ranking_PMT<=.75)
-gen pobre_PMT_90 = (ranking_PMT<=.90)
-
-
-* Deciles
-gen decil_PMT = ceil(ranking_PMT * 10)
-gen quintil_PMT = ceil(ranking_PMT * 5)
-
-
-**********************************************
-******    Correlación entre indicadores ******
-**********************************************
-spearman ingreso_est SumIPM
-
-foreach thresh in "" "_25" "_50" "_75" "_90" {
-    tab2xl pobre_PMT`thresh'  pobre_IPM`thresh' using "Outputs/tabs_pobreza_comparacion_eph.xlsx", row(1) col(1) sheet(`thresh')
-	
-}
-
-twoway (scatter ranking_IPM ranking_PMT, msize(tiny) mstyle(smcircle) mcolor(edkblue%20)), yline(.3962, lcolor(orange_red%80)) xline(.3962, lcolor(orange_red%80)) xtitle("Percentil Ingreso Estimado por PMT") ytitle("Percentil Indice de Pobreza Multidimensional (IPM)") text(.35 0.008 "Pobres por ambos indicadores" 0.95 0.008 "Pobres según PMT" 0.95 0.41 "No pobres por ambos indicadores"  0.35 0.41 "Pobres según IPM", placement(east) box bcolor(white%70))  xsize(6) $graph_aspect 
-graph export "Outputs/inclusion y exclusion.png", width(1500) replace
-
-foreach thresh in "" "_25" "_50" "_75" "_90" {
-    tab2xl pobre_PMT`thresh'  pobre_IPM`thresh' using "Outputs/tabs_pobreza_comparacion_eph.xlsx", row(1) col(1) sheet(`thresh')
-	
-}
-
-
-**********************************************
-******   	      Histogramas 	         *****
-**********************************************
-hist SumIPM, ylab(, nogrid) xtitle("Indice de Pobreza Multidimensional") ytitle("")  color("243 145 21") fcolor("243 145 21%40") $graph_aspect 
-graph export "Outputs/histogram_IPM_eph.png", width(1500) replace
-
-hist ingreso_est if ingreso_est<15000, ylab(, nogrid) xtitle("Ingreso Estimado utilizando metodología PMT") ytitle("")  color("114 156 177") fcolor("148 202 228") fintensity(inten100) $graph_aspect 
-graph export "Outputs/histogram_PMT_eph.png", width(1500) replace
-
 
 **********************************************
 ******   	  Microsimulaciones 	     *****
@@ -95,12 +49,16 @@ gen linea_pob = .
 replace linea_pob = 4930 if UR==1
 replace linea_pob = 2540 if UR==2
 
-drop pobre
 gen pobre = (YPERHG < linea_pob)
 gen pobre_extr = (YPERHG < linea_pob_extr)
 
-qui foreach ind in PMT IPM {
+qui foreach ind in log_ingreso_pred_lasso_urru_c2 log_ingreso_pred_carlos logingreso_xgboost ranking_IPM {
 
+	sort `ind'	
+	gen pos = _n / _N if UR==1
+	stop
+	gen asignado = ()
+	y 
 	gen asignacion_`ind' = 0
 	replace asignacion_`ind' = 8040/12 if pobre_`ind'==1
 	gen asignacion_`ind'_pc = asignacion_`ind' / TOTPER 

@@ -1,0 +1,445 @@
+import spss "D:\Datasets\EPH-PM Honduras\Consolidada 2023\CONSOLIDADA_2023.sav", clear
+drop if QUINTILH==6
+
+gen logingreso = log(YPERHG)
+gen pobreza = inlist(POBREZA, 1, 2)
+gen no_pobreza = 1-pobreza
+gen pobreza_ext = inlist(POBREZA, 1)
+gen no_pobreza_ext = 1-pobreza_ext
+
+*********************************************
+**** Generar variables para PMT Honduras ****
+*********************************************
+
+** Seccion 1: Variables usadas en la regresión inicial**
+
+gen Dominio_1 = (DOMINIO == 1)
+label variable Dominio_1 "Distrito Central"
+
+gen Dominio_2 = (DOMINIO == 2)
+label variable Dominio_2 "San Pedro Sula"
+
+gen Dominio_3 = (DOMINIO == 3)
+label variable Dominio_3 "Ciudades medianas"
+
+gen Dominio_4 = (DOMINIO == 4)
+label variable Dominio_4 "Ciudades pequeñas"
+
+gen Vivienda_bien = inlist(V01, 1, 4)
+label variable Vivienda_bien "Casa individual o Apartamento"
+
+gen Paredes_bien = (V02 == 1)
+label variable Paredes_bien "Paredes de ladrillo, piedra o bloque"
+
+gen Piso_mal = inlist(V03, 4, 5, 7)
+label variable Piso_mal "Pisos de Ladrillo de barro, plancha de cemento o de tierra"
+
+gen Agua_bien = (V05 == 1)
+label variable Agua_bien "Agua de tubería instalada"
+
+gen Agua2_bien = (V06 == 1)
+label variable Agua2_bien "Agua dentro de la vivienda"
+
+gen Alumbrado_bien = (V07 == 1)
+label variable Agua2_bien "Alumbrado público"
+
+* Asumo que la 3 va, pero no se
+gen Basura_bien = inlist(V08, 1, 2, 3)
+label variable Basura_bien "Basura la recogen o la pone en contenedores"
+
+gen Vivienda2_bien = inlist(V10, 1, 2, 3)
+label variable Vivienda2_bien "Vivienda alquilada o propietario pagando o pagada"
+
+gen Hacinamiento = (TOTPER / H09)
+label variable Hacinamiento  "Personas por dormitorio"
+
+gen Cocina_bien = (H02 == 1)
+label variable Cocina_bien "Cocina alimentos en una pieza dedica solo a cocinar"
+
+gen Cocina2_bien = inlist(H04, 3, 4)
+label variable Cocina2_bien "Cocina con gas propano o electricidad"
+
+gen Estufa_bien = (H05 == 1)
+label variable Estufa_bien "Cocina en estufa eléctrica"
+
+gen HaySanitario_bien = (H06 == 1)
+label variable HaySanitario_bien "Tiene servicio sanitario o letrina"
+
+gen Sanitario_bien = (H07 == 1)
+label variable Sanitario_bien "Tiene inodoro conectado a alcantarilla"
+
+gen Refri_mal = (H01_1 == 0)
+label variable Refri_mal "No tiene refrigeradora"
+
+gen Estufa_mal = (H01_2 == 0)
+label variable Estufa_mal "No tiene estufa"
+
+gen TV_mal = (H01_3 == 0)
+label variable TV_mal "No tiene televisor"
+
+gen Cable_mal = (H01_4 == 0)
+label variable Cable_mal "No tiene servicio de cable"
+
+gen Radio_mal = (H01_5 == 0)
+label variable Radio_mal "No tiene radio"
+
+gen EqSonido_mal = (H01_6 == 0)
+label variable EqSonido_mal "No tiene equipo de sonido"
+
+gen Telefono_mal = (H01_7 == 0)
+label variable Telefono_mal "No tiene teléfono fijo"
+
+gen Carro_mal = (H01_8 == 0)
+label variable Carro_mal "No tiene carro"
+
+gen Moto_mal = (H01_9 == 0)
+label variable Moto_mal "No tiene motocicleta"
+
+gen Bici_mal = (H01_10 == 0)
+label variable Bici_mal "No tiene bicicleta"
+
+gen Compu_mal = (H01_11 == 0)
+label variable Compu_mal "No tiene computadora"
+
+gen Aire_mal = (H01_12 == 0)
+label variable Aire_mal "No tiene aire acondicionado"
+
+gen Exterior_bien = (ME01 == 1)
+label variable Exterior_bien "Alguien del hogar vive en el exterior"
+
+gen Civil_mal = inlist(CIVIL, 2, 5, 6)
+label variable Civil_mal "Jefe es viudo, soltero o en unión libre"
+
+* LAS DE EDUCACION ME GENERAN DUDAS, porque no se si se refiere al nivel alcanzado como ultimo nivel o si cuenta si tiene aun mas educación
+
+gen Ed_basica_bien = (ED05 == 4)
+label variable Ed_basica_bien "Jefe completó educación básica"
+
+gen Ed_diversif_bien = inlist(ED05, 5, 6, 7)
+label variable Ed_diversif_bien "Jefe completó diversificado, técnico superior o superior No universitaria"
+
+gen Ed_univer_bien = inlist(ED05, 8, 9, 10, 11)
+label variable Ed_univer_bien "Jefe completó educación universitaria"
+
+* Proxy, no tenemos el dato
+gen Compu_bien = (Compu_mal == 1)
+label variable Compu_bien "Jefe uso computadora el mes pasado" 
+
+// gen Internet_bien = (TIC03 == 1)
+// label variable Internet_bien "Jefe  tuvo acceso a internet en los últimos 3 meses"
+
+// gen Celular_bien = (TIC09 == 1)
+// label variable Celular_bien "Jefe tiene celular"
+
+gen Trabajo_bien = (CA501 == 1)
+label variable Trabajo_bien "Trabajó la semana pasada"
+
+gen Ocupacion_bien = inlist(OC609, 1, 6)
+label variable Ocupacion_bien "Ocupación: Empleado u obrero público, Empleados, patrón o socio"
+
+* Edad del jefe
+gen edad = EDAD if NPER == 1
+label variable edad "Edad"
+
+gen edad_jefe2 = EDAD^2 if NPER == 1
+label variable edad_jefe2 "Edad del jefe al cuadrado"
+
+* Genero variables intermedias para la edad
+gen temp_edad_0_5 = (EDAD >= 0 & EDAD <= 5)
+gen temp_edad_6_14 = (EDAD >= 6 & EDAD <= 14)
+gen temp_edad_15_21 = (EDAD >= 15 & EDAD <= 21)
+gen temp_edad_22_60 = (EDAD >= 22 & EDAD <= 60)
+gen temp_edad_60_120 = (EDAD >60)
+
+* Sumo variable edad por hogar
+bysort HOGAR: gen num_edad_0_5 = sum(temp_edad_0_5)
+bysort HOGAR: gen num_edad_6_14 = sum(temp_edad_6_14)
+bysort HOGAR: gen num_edad_15_21 = sum(temp_edad_15_21)
+bysort HOGAR: gen num_edad_22_60 = sum(temp_edad_22_60)
+bysort HOGAR: gen num_edad_60_120 = sum(temp_edad_60_120)
+
+* Me quedo con el valor máximo
+bysort HOGAR: replace num_edad_0_5 = num_edad_0_5[_N]
+bysort HOGAR: replace num_edad_6_14 = num_edad_6_14[_N]
+bysort HOGAR: replace num_edad_15_21 = num_edad_15_21[_N]
+bysort HOGAR: replace num_edad_22_60 = num_edad_22_60[_N]
+bysort HOGAR: replace num_edad_60_120 = num_edad_60_120[_N]
+
+gen edad_0_5 = num_edad_0_5
+label variable edad_0_5 "# de personas de 0 a 5"
+
+gen edad_6_14 = num_edad_6_14
+label variable edad_6_14 "# de personas de 6 a 14"
+
+gen edad_15_21 = num_edad_15_21
+label variable edad_15_21 "# de personas de 15 a 21"
+
+gen edad_22_60 = num_edad_22_60
+label variable edad_22_60 "# de personas de 22 a 60"
+
+gen edad_60_120 = num_edad_60_120
+label variable edad_60_120 "# de personas de más de 60"
+
+* Dropeo variables intermedias
+drop num_edad_0_5 num_edad_6_14 num_edad_15_21 num_edad_22_60 num_edad_60_120 temp_edad_0_5 temp_edad_6_14 temp_edad_15_21 temp_edad_22_60 temp_edad_60_120 
+
+gen dv111 = V09
+label variable dv111 "Sin incluir   la cocina, el baño y garaje ¿Cuántas piezas tiene esta viv"
+
+gen dv112 = H09
+label variable dv112 "Del total de piezas de la vivienda, ¿Cuántas utilizan para dormir?"
+
+* Miro por hogar cuantas personas trabajan
+bysort HOGAR: gen trabajo_hogar = sum(CA501 == 1)
+bysort HOGAR: replace trabajo_hogar = trabajo_hogar[_N]
+* Ahora uso esa variable para el calculo
+gen Dependencia = (trabajo_hogar/TOTPER)
+label variable Dependencia "# de miembros trabajando la semana pasada / Tamaño del hogar entre"
+drop trabajo_hogar
+
+* Jubilaciones y pensiones
+
+* Reemplazamos missings por cero para poder sumarlos
+replace OIH01_LPS =0 if OIH01_LPS ==.
+replace OIH01_US =0 if OIH01_US==.
+replace OIH02_LPS =0 if OIH02_LPS ==.
+replace OIH05_LPS=0 if OIH05_LPS==.
+replace OIH05_US=0 if OIH05_US==.
+
+* Sumamos jubilaciones o pensiones por hogar
+sort HOGAR NPER
+by HOGAR: egen hh_OIH01_LPS = total(OIH01_LPS)
+by HOGAR: egen hh_OIH01_US = total(OIH01_US)
+by HOGAR: egen hh_OIH02_LPS = total(OIH02_LPS)
+by HOGAR: egen hh_OIH05_LPS = total(OIH05_LPS)
+by HOGAR: egen hh_OIH05_US = total(OIH05_US)
+
+egen pen_jub_monto = rowtotal(hh_OIH01_LPS hh_OIH01_US hh_OIH02_LPS hh_OIH05_LPS hh_OIH05_US) 
+
+gen Pension_bien = (pen_jub_monto>0)
+label variable Pension_bien "Reciben pensión o jubilación"
+
+* Alquileres
+* Reemplazamos missings por cero para poder sumarlos
+replace OIH03_LPS =0 if OIH03_LPS ==.
+sort HOGAR NPER
+by HOGAR: egen hh_OIH03_LPS = total(OIH03_LPS)
+
+gen Alquileres_bien = (hh_OIH03_LPS>0)
+label variable Alquileres_bien "Reciben alquileres"
+
+* Remesas del exterior (cualquier moneda)
+* Reemplazamos missings por cero para poder sumarlos
+replace OIH12_LPS =0 if OIH12_LPS ==.
+replace OIH12_US =0 if OIH12_US==.
+replace OIH12_LPS_ESP =0 if OIH12_LPS_ESP ==.
+replace OIH12_US_ESP=0 if OIH12_US_ESP==.
+
+sort HOGAR NPER
+by HOGAR: egen hh_OIH12_LPS = total(OIH12_LPS)
+by HOGAR: egen hh_OIH12_US = total(OIH12_US)
+by HOGAR: egen hh_OIH12_LPS_ESP = total(OIH12_LPS_ESP)
+by HOGAR: egen hh_OIH12_US_ESP = total(OIH12_US_ESP)
+
+egen remesas_monto = rowtotal(hh_OIH12_LPS hh_OIH12_US hh_OIH12_LPS_ESP hh_OIH12_US_ESP)
+
+gen Remesas_bien = (remesas_monto>0)
+label variable Remesas_bien "Reciben remesas del exterior"
+
+
+*###############################
+*######*     SALUD    ##########
+*###############################
+
+*#######* AGUA
+
+* En la zona urbana (UR==1) el servicio de agua no es brindado por tubería (V05 == 1) 
+* dentro de la vivienda o de la propiedad (inlist(V06, 1, 2))
+gen privacion_agua = .
+replace privacion_agua = !(V05 == 1 & inlist(V06, 1, 2)) if UR==1 & !mi(V05, V06)
+
+* En la zona rural (UR==2) el servicio de agua no es brindado por tubería o agua
+* de pozo protegido de llave comunitaria (inlist(V05, 1, 4)) ubicada a menos de 100 metros
+* de la vivienda (inlist(V06, 1, 2, 3)).
+replace privacion_agua = !(inlist(V05, 1, 4) & inlist(V06, 1, 2, 3)) if UR==2 & !mi(V05, V06)
+egen privacion_agua_h = max(privacion_agua), by(HOGAR)
+
+*#######* SANEAMIENTO
+
+* En la zona urbana el servicio sanitario no es un inodoro conectado a
+* alcantarillado o a pozo séptico (inlist(H07, 1, 2)).
+gen privacion_saneamiento = .
+replace privacion_saneamiento = !(inlist(H07, 1, 2)) if UR==1 & !mi(H07)
+
+* En la zona rural el sistema de saneamiento no es un inodoro conectado
+* a alcantarilla o a pozo séptico, o no es una letrina con cierre hidráulico
+* o pozo séptico (inlist(H07, 1, 2, 5, 6)).
+replace privacion_saneamiento = !(inlist(H07, 1, 2, 5, 6)) if UR==2 & !mi(H07)
+egen privacion_saneamiento_h = max(privacion_saneamiento), by(HOGAR)
+
+
+*#######* COCINA
+
+* El combustible para cocinar es leña
+gen privacion_cocina = (H04 == 1) if !mi(H04)
+egen privacion_cocina_h = max(privacion_cocina), by(HOGAR)
+
+
+*###################################
+*######*     EDUCACION    ##########
+*###################################
+
+*#######* Años de escolaridad
+* El Hogar es privado cuando al menos 1 miembro entre 15 y 49
+* años (inrange(EDAD, 15, 49)) tiene 6 años o menos de escolaridad (ANOSEST<6).
+gen privacion_educ = (inrange(EDAD, 15, 49) & ANOSEST<6) if !mi(EDAD, ANOSEST)
+egen privacion_educ_h = max(privacion_educ), by(HOGAR)
+
+
+*#######* Asistencia escolar 
+* Al menos un miembro del hogar entre 3 y 14 años (inrange(EDAD, 3, 14) no asiste a la
+* escuela ( ED03==2).
+gen privacion_asistencia = (inrange(EDAD, 3, 14) & ED03==2) if !mi(EDAD, ED03)
+egen privacion_asistencia_h = max(privacion_asistencia), by(HOGAR)
+
+
+*#######* Analfabetismo
+* Al menos un miembro del hogar mayor de 15 años no sabe leer y
+* escribir.
+gen privacion_alfab = (EDAD>15 & ED01==2) if !mi(EDAD, ED01)
+egen privacion_alfab_h = max(privacion_alfab), by(HOGAR)
+
+*###################################
+*######*      TRABAJO     ##########
+*###################################
+
+egen horas = rowtotal(OC_605*)
+
+*#######* Seguridad social 
+
+* Al menos una persona ocupada en edad laboral (18 a 65 años), no
+* está cotizando a un sistema de seguridad social (INJUPEMP o
+* INPREMA o IPM o IHSS o fondo privado de pensiones o seguro
+* médico privado).
+egen cotiza = rowmin(OC620 OC626 OC6201 OC6261) 
+gen privacion_segsoc = !(cotiza==1) if inrange(EDAD, 18, 65)
+egen privacion_segsoc_h = max(privacion_segsoc), by(HOGAR)
+
+* Son privados todos los hogares donde al menos 1 de sus
+* miembros en edad productiva es desocupado
+gen privacion_desocup = (CONDACT==2 & inrange(EDAD, 14, 65))
+egen privacion_desocup_h = max(privacion_desocup), by(HOGAR)
+
+
+*#######* Sub-empleo 
+
+* Al menos una persona ocupada del hogar que trabaja 40 horas por
+* semana gana menos de un salario mínimo.
+gen privacion_subemp = (horas>40 & YTRAB<SALMIN) if !mi(horas, YTRAB, SALMIN)
+egen privacion_subemp_h = max(privacion_subemp), by(HOGAR)
+
+* todos los miembros del hogar en edad productiva SON desocupados (CONDACT==2),
+* excepto que se trate de personas en condición de inactividad (CONDACT==3).
+gen privacion_ocup = (CONDACT==2 | CONDACT==3)
+egen q_no_ocup = total(privacion_ocup), by(HOGAR)
+gen privacion_ocup_h = (q_no_ocup / TOTPER == 1)
+
+*#######* Trabajo infantil
+
+* Existe al menos un niño de 5 a 13 años de edad que trabaja.
+gen privacion_trabinf = (inrange(EDAD, 5, 13) & CA501==1) if !mi(EDAD, CA501)
+egen privacion_trabinf_h = max(privacion_trabinf), by(HOGAR)
+
+* Existe al menos un niño de 14 o 15 años de edad que trabaja más
+* de 20 horas por semana y no estudia.
+gen privacion_trabadol1 = (inrange(EDAD, 14, 15) & horas>20 & ED03==2) if !mi(EDAD, ED03, horas)
+egen privacion_trabadol1_h = max(privacion_trabadol1), by(HOGAR)
+
+* Existe al menos un niño de 16 o 17 años de edad que trabaja más
+* de 30 horas por semana y no estudia.
+gen privacion_trabadol2 = (inrange(EDAD, 16, 17) & horas>30 & ED03==2) if !mi(EDAD, ED03, horas)
+egen privacion_trabadol2_h = max(privacion_trabadol2), by(HOGAR)
+
+
+*###################################
+*######*     VIVIENDA     ##########
+*###################################
+
+*######* Acceso a electricidad
+* No tiene acceso a electricidad por servicio público, servicio
+* privado colectivo, plata propia o energía solar (inlist(V007, 1, 2, 3, 4))
+gen privacion_elec = (!inlist(V07, 1, 2, 3, 4)) if !mi(V07)
+egen privacion_elec_h = max(privacion_elec), by(HOGAR)
+
+*######*  Material Pisos
+* La vivienda tiene pisos de tierra u otro material
+gen privacion_piso = (V03 == 7) if !mi(V03)
+egen privacion_piso_h = max(privacion_piso), by(HOGAR)
+
+*######*  Material techos
+* La vivienda tiene techo de Paja, palma o similar o material de
+* desecho u otro
+gen privacion_techo = (inlist(V04, 7, 8)) if !mi(V04)
+egen privacion_techo_h = max(privacion_techo), by(HOGAR)
+
+
+*######*  Material Paredes
+* La vivienda tiene pared de Bahareque, vara o caña o material de
+* desecho
+gen privacion_pared = (inlist(V02, 6, 7)) if !mi(V02)
+egen privacion_pared_h = max(privacion_pared), by(HOGAR)
+
+*######*  Hacinamiento
+* La vivienda tiene 3 personas (TOTPER) o más por cuarto, excluyendo cocina,
+* baño y garaje (V09)
+gen personas_por_cuartos = TOTPER / V09
+gen privacion_hacina = (personas_por_cuartos>=3)
+egen privacion_hacina_h = max(privacion_hacina), by(HOGAR)
+
+sort NPER
+keep if NPER==1
+egen hogar = tag(HOGAR)
+keep if hogar==1
+
+gen indice_pobreza_multi = 1/12 * privacion_agua_h +  1/12 * privacion_saneamiento_h + 1/12 * privacion_cocina_h + 1/12 *  privacion_educ_h + 1/12 * privacion_asistencia_h + 1/12 * privacion_alfab_h + 1/24 * privacion_segsoc_h + 1/24 * privacion_desocup_h + 1/24 * privacion_subemp_h + 1/24 * privacion_ocup_h + 1/36 * privacion_trabinf_h + 1/36 * privacion_trabadol1_h + 1/36 * privacion_trabadol2_h + 1/24 * privacion_elec_h + 1/24 * privacion_piso_h + 1/24 * privacion_techo_h + 1/24 * privacion_pared_h + 1/24 * privacion_hacina_h
+
+drop if indice_pobreza_multi == .
+gen pobreza_multidim = (indice_pobreza_multi>=0.25)
+gen no_pob_multidim = 1 - pobreza_multidim
+
+*###### FILTROS DE INGRESO
+
+gen log_ingreso_est = 7.0556 + 0.1236 * Basura_bien + 0.4290 * Vivienda2_bien + 0.1013 * Paredes_bien + 0.2017 * Alumbrado_bien + 0.1126 * Cocina2_bien - 0.1565 * Refri_mal - 0.0963 * Estufa_mal - 0.1373 * Carro_mal - 0.1725 * Compu_mal - 0.1585 * Aire_mal + 0.1474 * Ed_diversif_bien + 0.3999 * Ed_univer_bien + 0.2402 * Ocupacion_bien + 0.9922 * Dependencia+ 0.3570 * Pension_bien + 0.3503 * Alquileres_bien + 0.1530 * Remesas_bien - 0.0712 * edad_0_5 - 0.1111 * edad_6_14 - 0.0415 * edad_15_21 - 0.0193 * edad_60_120 + 0.0438 * dv111
+
+* Estimamos el ingreso
+gen ingreso_est = exp(log_ingreso_est)
+
+sort ingreso_est YTOTHG
+
+** Ajuste para probar
+gen diferencia = abs(logingreso - log_ingreso_est)
+
+gen dif_porcent = abs(diferencia / logingreso)
+histogram dif_porcent if dif_porcent < 4 & dif_porcent > 0.7
+
+gen outliers_70 = (dif_porcent > 0.7)
+gen outliers_30 = (dif_porcent > 0.3)
+
+gen random_num = runiform()
+gen test_set = (random_num<0.3)
+
+
+sort YPERHG 
+gen pos = _n / _N
+gen asignado_real = (pos < .3985)
+drop pos
+
+sort log_ingreso_est 
+gen pos = _n / _N
+gen asignado_PMT_carlos = (pos < .3985)
+
+gen FACTOR_test = round(FACTOR * 3)
+tab asignado_real asignado_PMT_carlos [iw=FACTOR_test] if test_set==1
+tab asignado_real pobreza_multidim [iw=FACTOR_test] if test_set==1
+stop
+save "D:\World Bank\Honduras PMT benchmark\Data_out\CONSOLIDADA_2023_clean.dta", replace
