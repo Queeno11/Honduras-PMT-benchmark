@@ -4,7 +4,7 @@ global Data_out = "$Path\Data_out"
 global Outputs = "$Path\Outputs"
 
 program define analisis_focalizacion, eclass
-    syntax , variable(string) urban(integer)
+    syntax , variable(string) urban(integer) [test_set(string)]
 	
 	frame change default
 	capture frame drop main
@@ -22,6 +22,9 @@ program define analisis_focalizacion, eclass
 		keep if UR==`urban'
 	}
 
+	if "`test_set'"=="test_set" {
+	    keep if test_set==1
+	}
 	gen linea_pob_extr = .
 	replace linea_pob_extr = 2468 if UR==1
 	replace linea_pob_extr = 1900 if UR==2
@@ -37,12 +40,12 @@ program define analisis_focalizacion, eclass
 	drop if pobre == .
 
 	if "`variable'"=="indice_pobreza_multi" {
-		gsort -`variable'
+		gsort UR -`variable'
 	}
 	else {	
-		gsort `variable'
+		gsort UR `variable'
 	}
-	gen pos = _n / _N
+	by UR: gen pos = _n/_N
 
 
 	qui forvalues s = 1/1000{
@@ -87,8 +90,14 @@ program define analisis_focalizacion, eclass
 
 end
 
+foreach urban in 0 { // 1 2 {
+	foreach var in log_ingreso_pred_lasso_urru_c2 log_ingreso_pred_carlos logingreso_xgboost indice_pobreza_multi {
+		analisis_focalizacion, variable(`var') urban(`urban') test_set(test_set)
+		export excel using "$Outputs/indicadores_bootstrap_`var'_urban`urban'_test.xlsx", replace firstrow(variables)
+	}
+}
 
-foreach urban in 0 1 2 {
+foreach urban in 0 { //  1 2 {
 	foreach var in log_ingreso_pred_lasso_urru_c2 log_ingreso_pred_carlos logingreso_xgboost indice_pobreza_multi {
 		analisis_focalizacion, variable(`var') urban(`urban')
 		export excel using "$Outputs/indicadores_bootstrap_`var'_urban`urban'.xlsx", replace firstrow(variables)

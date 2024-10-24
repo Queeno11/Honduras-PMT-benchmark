@@ -12,25 +12,12 @@ merge 1:1 HOGAR using "$Data_out/Predicts_XGBoost.dta"
 ******************************************
 ******    Indicadores de posición   ******
 ******************************************
-gen FACTOR_P = round(FACTOR * TOTPER )
+gen FACTOR_P = FACTOR * TOTPER
+replace UR = UR + 1
 *** IPM
-rename indice_pobreza_multi SumIPM
-gsort -SumIPM
+gsort -indice_pobreza_multi 
 gen ranking_IPM = _n/_N
-gen pobre_IPM = (SumIPM>=.25)
-gen pobre_IPM_alt = (SumIPM>.25)
-gen pobre_IPM_25 = (ranking_IPM<=.25)
-gen pobre_IPM_50 = (ranking_IPM<=.5)
-gen pobre_IPM_75 = (ranking_IPM<=.75)
-gen pobre_IPM_90 = (ranking_IPM<=.90)
 **  39.62 es el % de pobres por IPM (IPM>=.25)
-
-* Deciles
-gen decil_IPM = ceil(ranking_IPM * 10)
-gen quintil_IPM = ceil(ranking_IPM * 5)
-
-// scatter ranking_IPM ranking_PMT
-// heatplot ranking_IPM ranking_PMT
 
 
 **********************************************
@@ -52,45 +39,117 @@ replace linea_pob = 2540 if UR==2
 gen pobre = (YPERHG < linea_pob)
 gen pobre_extr = (YPERHG < linea_pob_extr)
 
-qui foreach ind in log_ingreso_pred_lasso_urru_c2 log_ingreso_pred_carlos logingreso_xgboost ranking_IPM {
+bysort DOMINIO: egen porcentaje_inclusion = mean(pobre) 
+tab porcentaje_inclusion
 
-	sort `ind'	
-	gen pos = _n / _N if UR==1
-	stop
-	gen asignado = ()
-	y 
-	gen asignacion_`ind' = 0
-	replace asignacion_`ind' = 8040/12 if pobre_`ind'==1
-	gen asignacion_`ind'_pc = asignacion_`ind' / TOTPER 
-	gen YPERHG_`ind' = YPERHG + asignacion_`ind'_pc
-	gen pobre_sim_`ind' = (YPERHG_`ind' < linea_pob)
-	gen pobre_sim_`ind'_fgt1 = pobre_sim_`ind' * (1-YPERHG_`ind'/linea_pob)
-	gen pobre_sim_`ind'_fgt2 = pobre_sim_`ind' * (1-YPERHG_`ind'/linea_pob)^2
-	
-	gen pobre_extr_sim_`ind' = (YPERHG_`ind' < linea_pob_extr)
-	gen pobre_extr_sim_`ind'_fgt1 = pobre_extr_sim_`ind' * (1-YPERHG_`ind'/linea_pob_extr)
-	gen pobre_extr_sim_`ind'_fgt2 = pobre_extr_sim_`ind' * (1-YPERHG_`ind'/linea_pob_extr)^2
-	
+gen pobre_IPM = (indice_pobreza_multi>=.25)
+gen rankIPM = -indice_pobreza_multi
+
+
+*** SIMULACION
+sum pobre [w=FACTOR_P]
+local pob = r(mean)
+noi display "Indice Pobreza: `pob'" 
+sum pobre_extr [w=FACTOR_P]
+local pob = r(mean)
+noi display "Indice Pobreza Extr: `pob'" 
+stop
+* Cantidad de hogares fija
+tempfile results
+postfile collector str50 Indicador Monto Hogares_Beneficiarios Indice_Pobreza Indice_Pobreza_Extrema using `results', replace
+
+foreach multiplicador in 1 1.29 2 3.81 4 5.01 8 { 
+	preserve
+	qui foreach ind in IPM log_ingreso_pred_lasso_urru_c2 log_ingreso_pred_carlos logingreso_xgboost rankIPM {
+
+		local newname = subinstr("`ind'", "log_ingreso_pred_", "", .)
+		local monto = 8040/12 * `multiplicador' 
+
+		if "`ind'"!="IPM" {
+			sort `ind'	
+			gen pos_`newname' = _n / _N
+			gen pobre_`newname' = (pos_`newname'<=porcentaje_inclusion)	
+		}	
+		sum pobre_`newname' [w=FACTOR_P]
+		local q_hog = r(sum)
+		
+		gen asignacion_`newname' = 0
+		replace asignacion_`newname' = `monto' if pobre_`newname'==1
+		
+		gen asignacion_`newname'_pc = asignacion_`newname' / TOTPER 
+		gen YPERHG_`newname' = YPERHG + asignacion_`newname'_pc
+		gen p_`newname' = (YPERHG_`newname' < linea_pob)
+		gen p_`newname'_fgt1 = p_`newname' * (1-YPERHG_`newname'/linea_pob)
+		gen p_`newname'_fgt2 = p_`newname' * (1-YPERHG_`newname'/linea_pob)^2
+		
+		gen pe_`newname' = (YPERHG_`newname' < linea_pob_extr)
+		gen pe_`newname'_fgt1 = pe_`newname' * (1-YPERHG_`newname'/linea_pob_extr)
+		gen pe_`newname'_fgt2 = pe_`newname' * (1-YPERHG_`newname'/linea_pob_extr)^2
+		
+		sum p_`newname' [w=FACTOR_P]
+		local p_`newname' = r(mean)
+
+		sum pe_`newname' [w=FACTOR_P]
+		local pe_`newname' = r(mean)
+		noi display "Indice Pobreza: (asignado `ind'): `pe_`newname''"
+		
+		* Store the values in the collector
+		post collector ("`ind'") (`monto') (`q_hog') (`p_`newname'') (`pe_`newname'')
+
+	}
+	restore
 }
 
-noi mean pobre
-noi mean pobre_sim_PMT
-noi mean pobre_sim_IPM
-noi mean pobre_sim_PMT_fgt1
-noi mean pobre_sim_IPM_fgt1
-noi mean pobre_sim_PMT_fgt2
-noi mean pobre_sim_IPM_fgt2
+* Presupuesto fijo
+foreach divisor in 2 4 8 { 
+	preserve
+	gen porcentaje_inclusion_sim = porcentaje_inclusion / `divisor'
+	qui foreach ind in log_ingreso_pred_lasso_urru_c2 log_ingreso_pred_carlos logingreso_xgboost rankIPM {
+
+		local newname = subinstr("`ind'", "log_ingreso_pred_", "", .)
+		local monto = 8040/12 * `divisor' 
+		sort `ind'	
+		gen pos_`newname' = _n / _N
+		gen pobre_`newname' = (pos_`newname'<=porcentaje_inclusion_sim)	
+		sum pobre_`newname' [w=FACTOR_P]
+		local q_hog = r(sum)
+		
+		gen asignacion_`newname' = 0
+		replace asignacion_`newname' = `monto' if pobre_`newname'==1
+		
+		gen asignacion_`newname'_pc = asignacion_`newname' / TOTPER 
+		gen YPERHG_`newname' = YPERHG + asignacion_`newname'_pc
+		gen p_`newname' = (YPERHG_`newname' < linea_pob)
+		gen p_`newname'_fgt1 = p_`newname' * (1-YPERHG_`newname'/linea_pob)
+		gen p_`newname'_fgt2 = p_`newname' * (1-YPERHG_`newname'/linea_pob)^2
+		
+		gen pe_`newname' = (YPERHG_`newname' < linea_pob_extr)
+		gen pe_`newname'_fgt1 = pe_`newname' * (1-YPERHG_`newname'/linea_pob_extr)
+		gen pe_`newname'_fgt2 = pe_`newname' * (1-YPERHG_`newname'/linea_pob_extr)^2
+		
+		sum p_`newname' [w=FACTOR_P]
+		local p_`newname' = r(mean)
+
+		sum pe_`newname' [w=FACTOR_P]
+		local pe_`newname' = r(mean)
+		noi display "Indice Pobreza: (asignado `ind'): `pe_`newname''"
+		
+		* Store the values in the collector
+		post collector ("`ind'") (`monto') (`q_hog') (`p_`newname'') (`pe_`newname'')
+
+	}
+	restore
+}
+
+postclose collector
+use `results', replace
+export excel using "$Outputs\simluaciones_pobreza.xlsx", replace firstrow(variables)
 stop
 
-noi mean pobre_extr if UR==2
-noi mean pobre_extr_sim_PMT if UR==2
-noi mean pobre_extr_sim_IPM if UR==2
-noi mean pobre_extr_sim_PMT_fgt1 if UR==2
-noi mean pobre_extr_sim_IPM_fgt1 if UR==2
-noi mean pobre_extr_sim_PMT_fgt2 if UR==2
-noi mean pobre_extr_sim_IPM_fgt2 if UR==2
-// poverty YPERHG_IPM, line(linea_pob)
 
+*******************************************************
+******   Gasto entre hogares pobres y no pobres   *****
+*******************************************************
 
 * KDE Excluídos
 twoway (kdensity YPERHG if pobre_IPM==0 & YPERHG<10000) (kdensity YPERHG if pobre_IPM==1 & YPERHG<10000) (kdensity YPERHG if pobre_PMT==0 & YPERHG<10000) (kdensity YPERHG if pobre_PMT==1 & YPERHG<10000)
@@ -119,43 +178,3 @@ graph export "D:\World Bank\Honduras PMT benchmark\Outputs\boxplot_excluídos.pn
 sum YPERHG_nopob_IPM YPERHG_nopob_PMT, d
 stop
 restore
-
-
-******************************************************
-******    Asignados por deciles de ingreso 	     *****
-******************************************************
-
-gsort YPERHG
-gen pos_YPERHG = _n / _N
-gen decil_ingreso = ceil(pos_YPERHG*10)
-gen quintil_ingreso = ceil(pos_YPERHG*5)
-
-preserve
-collapse (mean) pobre_PMT pobre_IPM, by(decil_ingreso)
-gen no_pobre_PMT = 1 - pobre_PMT
-gen no_pobre_IPM = 1 - pobre_IPM
-export excel using "Outputs/targeting_deciles.xlsx", replace firstrow(variables)
-restore
-
-preserve
-keep if UR==1
-collapse (mean) pobre_PMT pobre_IPM, by(decil_ingreso)
-gen no_pobre_PMT = 1 - pobre_PMT
-gen no_pobre_IPM = 1 - pobre_IPM
-export excel using "Outputs/targeting_deciles_urbano.xlsx", replace firstrow(variables)
-restore
-
-preserve
-keep if UR==2
-collapse (mean) pobre_PMT pobre_IPM, by(decil_ingreso)
-gen no_pobre_PMT = 1 - pobre_PMT
-gen no_pobre_IPM = 1 - pobre_IPM
-export excel using "Outputs/targeting_deciles_rural.xlsx", replace firstrow(variables)
-restore
-
-*******************************************************
-******   Gasto entre hogares pobres y no pobres   *****
-*******************************************************
-
-gen pobre_ingreso = (POBREZA != 3) if POBREZA!=.
-tab pobre_IPM 
