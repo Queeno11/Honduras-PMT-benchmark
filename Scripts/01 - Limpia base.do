@@ -1,3 +1,5 @@
+set seed 825
+
 import spss "D:\Datasets\EPH-PM Honduras\Consolidada 2023\CONSOLIDADA_2023.sav", clear
 drop if QUINTILH==6
 
@@ -6,6 +8,8 @@ gen pobreza = inlist(POBREZA, 1, 2)
 gen no_pobreza = 1-pobreza
 gen pobreza_ext = inlist(POBREZA, 1)
 gen no_pobreza_ext = 1-pobreza_ext
+
+gen FACTOR_P = FACTOR * TOTPER
 
 *********************************************
 **** Generar variables para PMT Honduras ****
@@ -43,12 +47,14 @@ label variable Agua2_bien "Agua dentro de la vivienda"
 gen Alumbrado_bien = (V07 == 1)
 label variable Agua2_bien "Alumbrado público"
 
-* Asumo que la 3 va, pero no se
 gen Basura_bien = inlist(V08, 1, 2, 3)
 label variable Basura_bien "Basura la recogen o la pone en contenedores"
 
 gen Vivienda2_bien = inlist(V10, 1, 2, 3)
 label variable Vivienda2_bien "Vivienda alquilada o propietario pagando o pagada"
+
+* Eliminamos valores incoherentes de cantidad de habitaciones
+drop if (H09 == 99 | H09 == 98 | H09 <0)
 
 gen Hacinamiento = (TOTPER / H09)
 label variable Hacinamiento  "Personas por dormitorio"
@@ -110,8 +116,6 @@ label variable Exterior_bien "Alguien del hogar vive en el exterior"
 gen Civil_mal = inlist(CIVIL, 2, 5, 6)
 label variable Civil_mal "Jefe es viudo, soltero o en unión libre"
 
-* LAS DE EDUCACION ME GENERAN DUDAS, porque no se si se refiere al nivel alcanzado como ultimo nivel o si cuenta si tiene aun mas educación
-
 gen Ed_basica_bien = (ED05 == 4)
 label variable Ed_basica_bien "Jefe completó educación básica"
 
@@ -144,21 +148,21 @@ label variable edad "Edad"
 gen edad_jefe2 = EDAD^2 if NPER == 1
 label variable edad_jefe2 "Edad del jefe al cuadrado"
 
-* Genero variables intermedias para la edad
+* Variables intermedias para la edad
 gen temp_edad_0_5 = (EDAD >= 0 & EDAD <= 5)
 gen temp_edad_6_14 = (EDAD >= 6 & EDAD <= 14)
 gen temp_edad_15_21 = (EDAD >= 15 & EDAD <= 21)
 gen temp_edad_22_60 = (EDAD >= 22 & EDAD <= 60)
 gen temp_edad_60_120 = (EDAD >60)
 
-* Sumo variable edad por hogar
+* Suma de variable edad por hogar
 bysort HOGAR: gen num_edad_0_5 = sum(temp_edad_0_5)
 bysort HOGAR: gen num_edad_6_14 = sum(temp_edad_6_14)
 bysort HOGAR: gen num_edad_15_21 = sum(temp_edad_15_21)
 bysort HOGAR: gen num_edad_22_60 = sum(temp_edad_22_60)
 bysort HOGAR: gen num_edad_60_120 = sum(temp_edad_60_120)
 
-* Me quedo con el valor máximo
+* Valor máximo
 bysort HOGAR: replace num_edad_0_5 = num_edad_0_5[_N]
 bysort HOGAR: replace num_edad_6_14 = num_edad_6_14[_N]
 bysort HOGAR: replace num_edad_15_21 = num_edad_15_21[_N]
@@ -180,19 +184,23 @@ label variable edad_22_60 "# de personas de 22 a 60"
 gen edad_60_120 = num_edad_60_120
 label variable edad_60_120 "# de personas de más de 60"
 
-* Dropeo variables intermedias
+* Eliminamos variables intermedias
 drop num_edad_0_5 num_edad_6_14 num_edad_15_21 num_edad_22_60 num_edad_60_120 temp_edad_0_5 temp_edad_6_14 temp_edad_15_21 temp_edad_22_60 temp_edad_60_120 
 
 gen dv111 = V09
 label variable dv111 "Sin incluir   la cocina, el baño y garaje ¿Cuántas piezas tiene esta viv"
 
+winsor dv111, gen(dv111_w) p(0.01)
+replace dv111 = dv111_w
+drop dv111_w
+
 gen dv112 = H09
 label variable dv112 "Del total de piezas de la vivienda, ¿Cuántas utilizan para dormir?"
 
-* Miro por hogar cuantas personas trabajan
+* Por hogar cuantas personas trabajan
 bysort HOGAR: gen trabajo_hogar = sum(CA501 == 1)
 bysort HOGAR: replace trabajo_hogar = trabajo_hogar[_N]
-* Ahora uso esa variable para el calculo
+
 gen Dependencia = (trabajo_hogar/TOTPER)
 label variable Dependencia "# de miembros trabajando la semana pasada / Tamaño del hogar entre"
 drop trabajo_hogar
@@ -246,6 +254,9 @@ egen remesas_monto = rowtotal(hh_OIH12_LPS hh_OIH12_US hh_OIH12_LPS_ESP hh_OIH12
 gen Remesas_bien = (remesas_monto>0)
 label variable Remesas_bien "Reciben remesas del exterior"
 
+*********************************************
+**** Generar variables para IPM Honduras ****
+*********************************************
 
 *###############################
 *######*     SALUD    ##########
@@ -396,6 +407,10 @@ gen personas_por_cuartos = TOTPER / V09
 gen privacion_hacina = (personas_por_cuartos>=3)
 egen privacion_hacina_h = max(privacion_hacina), by(HOGAR)
 
+*********************************************
+****           Cálculo del IPM           ****
+*********************************************
+
 sort NPER
 keep if NPER==1
 egen hogar = tag(HOGAR)
@@ -407,39 +422,75 @@ drop if indice_pobreza_multi == .
 gen pobreza_multidim = (indice_pobreza_multi>=0.25)
 gen no_pob_multidim = 1 - pobreza_multidim
 
-*###### FILTROS DE INGRESO
+
+**************************************************
+**** Estimación del ingreso en función de PMT ****
+**************************************************
+
+* Este codigo busca reconstruir el ingreso estimado para las familias en Honduras en función del documento metodológico del WB
+* Documento de referencia: "ESTIMACIÓN DE INGRESOS DE LOS HOGARES URBANOS POR MEDIO DE UNA REGRESIÓN MULTIVARIADA, HONDURAS" Carlos E. Sobrado, Banco Mundial, 22 de febrero, 2023
+
+/* 
+Estimación del Ingreso de los Hogares del documento WB:
+- Constante: 7.0556
+- Basura recolectada domicilio Pública, Privada o la Deposita en contenedores: 0.1236
+- La vivienda que tiene es Propia, Propia pagándola o Alquilada: 0.4290
+- NBI_CAPS Sin capacidad de subsistencia: -0.6508
+- Paredes de ladrillo, piedra o bloque: 0.1013
+- Alumbrado público: 0.2017
+- Cocina con gas propano o electricidad: 0.1126
+- Sin incluir cocina, baño y garaje ¿# piezas tiene esta vivienda?: 0.0438
+- No tiene refrigeradora: -0.1565
+- No tiene estufa: -0.0963
+- No tiene carro: -0.1373
+- No tiene computadora: -0.1725
+- No tiene aire acondicionado: -0.1585
+- Jefe completó ciclo común: 0.0705
+- Jefe completó diversificado, técnico superior o superior no universitaria: 0.1474
+- Jefe completó educación universitaria: 0.3999
+- Jefe es Empleado u obrero público, Empleador, patrón o socio: 0.2402
+- # que trabajaron la semana pasada / Tamaño del hogar: 0.9922
+- Reciben pensión o jubilación: 0.3570
+- Reciben alquileres: 0.3503
+- Reciben remesas del exterior: 0.1530
+- No se preocupó por comer en 3 meses: 0.1747
+- No dejó de comer un día entero en 3 meses: 0.1417
+- Número de miembros de 0 a 5 años: -0.0712
+- Número de miembros de 6 a 14 años: -0.1111
+- Número de miembros de 15 a 21 años: -0.0415
+- Número de miembros de más de 60 años: -0.0193
+*/
 
 gen log_ingreso_est = 7.0556 + 0.1236 * Basura_bien + 0.4290 * Vivienda2_bien + 0.1013 * Paredes_bien + 0.2017 * Alumbrado_bien + 0.1126 * Cocina2_bien - 0.1565 * Refri_mal - 0.0963 * Estufa_mal - 0.1373 * Carro_mal - 0.1725 * Compu_mal - 0.1585 * Aire_mal + 0.1474 * Ed_diversif_bien + 0.3999 * Ed_univer_bien + 0.2402 * Ocupacion_bien + 0.9922 * Dependencia+ 0.3570 * Pension_bien + 0.3503 * Alquileres_bien + 0.1530 * Remesas_bien - 0.0712 * edad_0_5 - 0.1111 * edad_6_14 - 0.0415 * edad_15_21 - 0.0193 * edad_60_120 + 0.0438 * dv111
+
+/* Variables que no pudimos incluir: 
+- No se preocupó por comer en 3 meses: 0.1747
+- No dejó de comer un día entero en 3 meses: 0.1417
+*/
 
 * Estimamos el ingreso
 gen ingreso_est = exp(log_ingreso_est)
 
 sort ingreso_est YTOTHG
 
+*****************
+
 ** Ajuste para probar
-gen diferencia = abs(logingreso - log_ingreso_est)
+*gen diferencia = abs(logingreso - log_ingreso_est)
 
-gen dif_porcent = abs(diferencia / logingreso)
-histogram dif_porcent if dif_porcent < 4 & dif_porcent > 0.7
+*gen dif_porcent = abs(diferencia / logingreso)
+*histogram dif_porcent if dif_porcent < 4 & dif_porcent > 0.7
 
-gen outliers_70 = (dif_porcent > 0.7)
-gen outliers_30 = (dif_porcent > 0.3)
+*gen outliers_70 = (dif_porcent > 0.7)
+*gen outliers_30 = (dif_porcent > 0.3)
 
 gen random_num = runiform()
 gen test_set = (random_num<0.3)
 
+******** Ajuste de winsor para las colas **************
 
-sort YPERHG 
-gen pos = _n / _N
-gen asignado_real = (pos < .3985)
-drop pos
+winsor logingreso, gen(logingreso_w) p(0.01)
+replace logingreso = logingreso_w
+drop logingreso_w
 
-sort log_ingreso_est 
-gen pos = _n / _N
-gen asignado_PMT_carlos = (pos < .3985)
-
-gen FACTOR_test = round(FACTOR * 3)
-tab asignado_real asignado_PMT_carlos [iw=FACTOR_test] if test_set==1
-tab asignado_real pobreza_multidim [iw=FACTOR_test] if test_set==1
-stop
 save "D:\World Bank\Honduras PMT benchmark\Data_out\CONSOLIDADA_2023_clean.dta", replace
