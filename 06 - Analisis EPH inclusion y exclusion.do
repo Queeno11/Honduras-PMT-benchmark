@@ -1,5 +1,5 @@
 clear all
-
+cd "D:\World Bank\Honduras PMT benchmark"
 program define analisis_focalizacion, eclass
     syntax , variable(string) urban(integer)
 	frame change default
