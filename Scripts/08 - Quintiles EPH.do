@@ -17,6 +17,8 @@ foreach urban in 0 1 2 {
 	if "`urban'"!="0" {
 		keep if UR==`urban'
 	}
+	replace FACTOR_P = FACTOR_P*.21 if UR==1
+	replace FACTOR_P = FACTOR_P*.3095 if UR==2
 	drop if indice_pobreza_multi==.
 	drop if YPERHG==.
 	
@@ -30,7 +32,7 @@ foreach urban in 0 1 2 {
 	gen decil_ingreso = ceil(pos_YPERHG*10)
 
 
-	foreach var in log_ingreso_pred_lasso_urru_c2 log_ingreso_pred_carlos logingreso_xgboost indice_pobreza_multi_neg {
+	foreach var in log_ingreso_pred_lasso_urru_c2 logingreso_xgboost indice_pobreza_multi_neg {
 		gsort `var'
 		local newname = subinstr("`var'", "log_ingreso_pred_", "", .)
 		gen pos_`newname' = _n / _N
@@ -43,13 +45,28 @@ foreach urban in 0 1 2 {
 	export excel using "$Outputs/targeting_deciles_ur`urban'.xlsx", replace firstrow(variables)
 	restore
 
+
 	* Only test set
+	preserve
 	keep if test_set==1
 	replace FACTOR_P = FACTOR_P*3
 	collapse (mean) pobre_* (sum) personas [iw=FACTOR_P], by(decil_ingreso)
 	
 	replace personas = round(personas)
 	export excel using "$Outputs/targeting_deciles_ur`urban'_test.xlsx", replace firstrow(variables)
+	restore
+
+	* Redistribution
+	preserve
+	gen cambio = pobre_IPM - pobre_lasso_urru_c2
+	gen nuevo_asignado = (cambio==-1)
+	gen nuevo_excluido = (cambio==1)
+	gen mantiene = (cambio==0)
+
+	collapse (sum) nuevo_asignado nuevo_excluido mantiene [iw=FACTOR_P], by(decil_ingreso)
+	replace nuevo_excluido = - nuevo_excluido 
+	export excel using "$Outputs/redistribucion_ur`urban'.xlsx", replace firstrow(variables)
+	restore
 
 }
 

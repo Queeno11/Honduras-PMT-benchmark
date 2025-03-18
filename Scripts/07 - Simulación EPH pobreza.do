@@ -53,128 +53,100 @@ noi display "Indice Pobreza: `pob'"
 sum pobre_extr [w=FACTOR_P]
 local pob = r(mean)
 noi display "Indice Pobreza Extr: `pob'" 
-stop
+
 * Cantidad de hogares fija
 tempfile results
-postfile collector str50 Indicador Monto Hogares_Beneficiarios Indice_Pobreza Indice_Pobreza_Extrema using `results', replace
+postfile collector str50 Indicador str50 Año Monto Hogares_Beneficiarios Indice_Pobreza Indice_Pobreza_Extrema using `results', replace
 
 foreach multiplicador in 1 1.29 2 3.81 4 5.01 8 { 
-	preserve
-	qui foreach ind in IPM log_ingreso_pred_lasso_urru_c2 log_ingreso_pred_carlos logingreso_xgboost rankIPM {
+	qui foreach ind in IPM log_ingreso_pred_lasso_urru_c2 logingreso_xgboost rankIPM {
+		foreach year in "first" "after" {
+			preserve
 
-		local newname = subinstr("`ind'", "log_ingreso_pred_", "", .)
-		local monto = 8040/12 * `multiplicador' 
+			local newname = subinstr("`ind'", "log_ingreso_pred_", "", .)
+			local monto = 4020/12 * `multiplicador' 
 
-		if "`ind'"!="IPM" {
-			sort `ind'	
-			gen pos_`newname' = _n / _N
-			gen pobre_`newname' = (pos_`newname'<=porcentaje_inclusion)	
-		}	
-		sum pobre_`newname' [w=FACTOR_P]
-		local q_hog = r(sum)
-		
-		gen asignacion_`newname' = 0
-		replace asignacion_`newname' = `monto' if pobre_`newname'==1
-		
-		gen asignacion_`newname'_pc = asignacion_`newname' / TOTPER 
-		gen YPERHG_`newname' = YPERHG + asignacion_`newname'_pc
-		gen p_`newname' = (YPERHG_`newname' < linea_pob)
-		gen p_`newname'_fgt1 = p_`newname' * (1-YPERHG_`newname'/linea_pob)
-		gen p_`newname'_fgt2 = p_`newname' * (1-YPERHG_`newname'/linea_pob)^2
-		
-		gen pe_`newname' = (YPERHG_`newname' < linea_pob_extr)
-		gen pe_`newname'_fgt1 = pe_`newname' * (1-YPERHG_`newname'/linea_pob_extr)
-		gen pe_`newname'_fgt2 = pe_`newname' * (1-YPERHG_`newname'/linea_pob_extr)^2
-		
-		sum p_`newname' [w=FACTOR_P]
-		local p_`newname' = r(mean)
+			if "`ind'"!="IPM" {
+				sort `ind'	
+				gen pos_`newname' = _n / _N
+				gen pobre_`newname' = (pos_`newname'<=porcentaje_inclusion)	
+			}	
+			sum pobre_`newname' [w=FACTOR_P]
+			local q_hog = r(sum)
+			
+			gen asignacion_`newname' = 0
+			replace asignacion_`newname' = `monto' if pobre_`newname'==1
+			if "`year'"=="first" {
+				replace asignacion_`newname' = asignacion_`newname' + `monto' // Asignación universal
+			}
+			gen asignacion_`newname'_pc = asignacion_`newname' / TOTPER 
+			gen YPERHG_`newname' = YPERHG + asignacion_`newname'_pc
+			gen p_`newname' = (YPERHG_`newname' < linea_pob)
+			gen p_`newname'_fgt1 = p_`newname' * (1-YPERHG_`newname'/linea_pob)
+			gen p_`newname'_fgt2 = p_`newname' * (1-YPERHG_`newname'/linea_pob)^2
+			
+			gen pe_`newname' = (YPERHG_`newname' < linea_pob_extr)
+			gen pe_`newname'_fgt1 = pe_`newname' * (1-YPERHG_`newname'/linea_pob_extr)
+			gen pe_`newname'_fgt2 = pe_`newname' * (1-YPERHG_`newname'/linea_pob_extr)^2
+			
+			sum p_`newname' [w=FACTOR_P]
+			local p_`newname' = r(mean)
 
-		sum pe_`newname' [w=FACTOR_P]
-		local pe_`newname' = r(mean)
-		noi display "Indice Pobreza: (asignado `ind'): `pe_`newname''"
-		
-		* Store the values in the collector
-		post collector ("`ind'") (`monto') (`q_hog') (`p_`newname'') (`pe_`newname'')
-
+			sum pe_`newname' [w=FACTOR_P]
+			local pe_`newname' = r(mean)
+			noi display "Indice Pobreza: (asignado `ind'): `pe_`newname''"
+			
+			* Store the values in the collector
+			post collector ("`ind'") ("`year'") (`monto') (`q_hog') (`p_`newname'') (`pe_`newname'')
+			restore
+		}
 	}
-	restore
 }
 
 * Presupuesto fijo
 foreach divisor in 2 4 8 { 
-	preserve
-	gen porcentaje_inclusion_sim = porcentaje_inclusion / `divisor'
-	qui foreach ind in log_ingreso_pred_lasso_urru_c2 log_ingreso_pred_carlos logingreso_xgboost rankIPM {
+	qui foreach ind in log_ingreso_pred_lasso_urru_c2 logingreso_xgboost rankIPM {
+		foreach year in "first" "after" {
+			preserve
+			gen porcentaje_inclusion_sim = porcentaje_inclusion / `divisor'
+			local newname = subinstr("`ind'", "log_ingreso_pred_", "", .)
+			local monto = 4020/12 * `divisor' 
 
-		local newname = subinstr("`ind'", "log_ingreso_pred_", "", .)
-		local monto = 8040/12 * `divisor' 
-		sort `ind'	
-		gen pos_`newname' = _n / _N
-		gen pobre_`newname' = (pos_`newname'<=porcentaje_inclusion_sim)	
-		sum pobre_`newname' [w=FACTOR_P]
-		local q_hog = r(sum)
-		
-		gen asignacion_`newname' = 0
-		replace asignacion_`newname' = `monto' if pobre_`newname'==1
-		
-		gen asignacion_`newname'_pc = asignacion_`newname' / TOTPER 
-		gen YPERHG_`newname' = YPERHG + asignacion_`newname'_pc
-		gen p_`newname' = (YPERHG_`newname' < linea_pob)
-		gen p_`newname'_fgt1 = p_`newname' * (1-YPERHG_`newname'/linea_pob)
-		gen p_`newname'_fgt2 = p_`newname' * (1-YPERHG_`newname'/linea_pob)^2
-		
-		gen pe_`newname' = (YPERHG_`newname' < linea_pob_extr)
-		gen pe_`newname'_fgt1 = pe_`newname' * (1-YPERHG_`newname'/linea_pob_extr)
-		gen pe_`newname'_fgt2 = pe_`newname' * (1-YPERHG_`newname'/linea_pob_extr)^2
-		
-		sum p_`newname' [w=FACTOR_P]
-		local p_`newname' = r(mean)
+			sort `ind'	
+			gen pos_`newname' = _n / _N
+			gen pobre_`newname' = (pos_`newname'<=porcentaje_inclusion_sim)	
+			sum pobre_`newname' [w=FACTOR_P]
+			local q_hog = r(sum)
+			
+			gen asignacion_`newname' = 0
+			replace asignacion_`newname' = `monto' if pobre_`newname'==1
+			if "`year'"=="first" {
+				replace asignacion_`newname' = asignacion_`newname' + `monto' // Asignación universal
+			}
+			gen asignacion_`newname'_pc = asignacion_`newname' / TOTPER 
+			gen YPERHG_`newname' = YPERHG + asignacion_`newname'_pc
+			gen p_`newname' = (YPERHG_`newname' < linea_pob)
+			gen p_`newname'_fgt1 = p_`newname' * (1-YPERHG_`newname'/linea_pob)
+			gen p_`newname'_fgt2 = p_`newname' * (1-YPERHG_`newname'/linea_pob)^2
+			
+			gen pe_`newname' = (YPERHG_`newname' < linea_pob_extr)
+			gen pe_`newname'_fgt1 = pe_`newname' * (1-YPERHG_`newname'/linea_pob_extr)
+			gen pe_`newname'_fgt2 = pe_`newname' * (1-YPERHG_`newname'/linea_pob_extr)^2
+			
+			sum p_`newname' [w=FACTOR_P]
+			local p_`newname' = r(mean)
 
-		sum pe_`newname' [w=FACTOR_P]
-		local pe_`newname' = r(mean)
-		noi display "Indice Pobreza: (asignado `ind'): `pe_`newname''"
-		
-		* Store the values in the collector
-		post collector ("`ind'") (`monto') (`q_hog') (`p_`newname'') (`pe_`newname'')
-
+			sum pe_`newname' [w=FACTOR_P]
+			local pe_`newname' = r(mean)
+			noi display "Indice Pobreza: (asignado `ind'): `pe_`newname''"
+			
+			* Store the values in the collector
+			post collector ("`ind'") ("`year'") (`monto') (`q_hog') (`p_`newname'') (`pe_`newname'')
+			restore
+		}
 	}
-	restore
 }
 
 postclose collector
 use `results', replace
 export excel using "$Outputs\simluaciones_pobreza.xlsx", replace firstrow(variables)
-stop
-
-
-*******************************************************
-******   Gasto entre hogares pobres y no pobres   *****
-*******************************************************
-
-* KDE Excluídos
-twoway (kdensity YPERHG if pobre_IPM==0 & YPERHG<10000) (kdensity YPERHG if pobre_IPM==1 & YPERHG<10000) (kdensity YPERHG if pobre_PMT==0 & YPERHG<10000) (kdensity YPERHG if pobre_PMT==1 & YPERHG<10000)
-
-* BOXPLOT Excluídos
-
-
-gen no_pob_indicator = ""
-replace no_pob_indicator = "Ingreso de excluídos (IPM)" if pobre_IPM==0 
-replace no_pob_indicator = "Ingreso de excluídos (PMT)" if pobre_PMT==0
-gen YPERHG_nopob_PMT = YPERHG if no_pob_indicator=="Ingreso de excluídos (PMT)"
-label var YPERHG_nopob_PMT  "Ingreso de excluídos (PMT)"
-gen YPERHG_nopob_IPM = YPERHG if no_pob_indicator=="Ingreso de excluídos (IPM)"
-label var YPERHG_nopob_IPM  "Ingreso de excluídos (IPM)"
-
-preserve 
-local N = _N
-expand 2
-gen byte new = _n > `N'
-replace UR = 0 if new
-label define urban 0 "Total" 1 "Urbano" 2 "Rural"
-label values UR urban 
-
-graph hbox YPERHG_nopob_IPM YPERHG_nopob_PMT, nooutsides over(UR) aspectratio(0.6) box(1, color(243 145 21) fcolor(243 145 21) fintensity(inten40)) box(2, color(114 156 177) fcolor(148 202 228) fintensity(inten100))  legend(region(lstyle(none)) cols(1) label(2 "Ingreso per capita de hogares excluídos por PMT") label(1 `"Ingreso per capita de hogares excluídos por IPM"')) $graph_aspect
-graph export "D:\World Bank\Honduras PMT benchmark\Outputs\boxplot_excluídos.png", width(1500) replace
-sum YPERHG_nopob_IPM YPERHG_nopob_PMT, d
-stop
-restore

@@ -48,7 +48,7 @@ graph combine urban rural, ///
     xsize(10) ysize(5)
 graph export "$Outputs/inclusion y exclusion.png", width(1500) replace
 
-stop
+
 ******************************************
 ******    	BOXPLOT Excluídos		******
 ******************************************
@@ -74,5 +74,5 @@ label values UR urban
 graph hbox YPERHG_nopob_IPM YPERHG_nopob_PMT [w=FACTOR], nooutsides over(UR) aspectratio(0.6) box(1, color(243 145 21) fcolor(243 145 21) fintensity(inten40)) box(2, color(114 156 177) fcolor(148 202 228) fintensity(inten100))  legend(region(lstyle(none)) cols(1) label(2 "Ingreso per capita de hogares excluídos por PMT") label(1 `"Ingreso per capita de hogares excluídos por IPM"')) $graph_aspect
 graph export "D:\World Bank\Honduras PMT benchmark\Outputs\boxplot_excluídos.png", width(1500) replace
 sum YPERHG_nopob_IPM YPERHG_nopob_PMT, d
-stop
+
 restore

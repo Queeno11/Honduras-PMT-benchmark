@@ -17,6 +17,7 @@ program define analisis_focalizacion, eclass
 	use "$Data_out/preds lasso pmt.dta", replace
 	merge 1:1 HOGAR using "$Data_out/Predicts_XGBoost.dta"
 	replace UR = UR+1
+	save "$Data_out\Consolidada con logs estimaciones", replace
 	
 	if `urban'!=0 {
 		keep if UR==`urban'
@@ -38,7 +39,7 @@ program define analisis_focalizacion, eclass
 	
 	drop if `variable' == .
 	drop if pobre == .
-
+	
 	if "`variable'"=="indice_pobreza_multi" {
 		gsort UR -`variable'
 	}
@@ -90,15 +91,15 @@ program define analisis_focalizacion, eclass
 
 end
 
-foreach urban in 0 { // 1 2 {
-	foreach var in log_ingreso_pred_lasso_urru_c2 log_ingreso_pred_carlos logingreso_xgboost indice_pobreza_multi {
-		analisis_focalizacion, variable(`var') urban(`urban') test_set(test_set)
-		export excel using "$Outputs/indicadores_bootstrap_`var'_urban`urban'_test.xlsx", replace firstrow(variables)
-	}
-}
+// foreach urban in 0 1 2 {
+// 	foreach var in log_ingreso_pred_lasso_urru_c2 logingreso_xgboost indice_pobreza_multi {
+// 		analisis_focalizacion, variable(`var') urban(`urban') test_set(test_set)
+// 		export excel using "$Outputs/indicadores_bootstrap_`var'_urban`urban'_test.xlsx", replace firstrow(variables)
+// 	}
+// }
 
-foreach urban in 0 { //  1 2 {
-	foreach var in log_ingreso_pred_lasso_urru_c2 log_ingreso_pred_carlos logingreso_xgboost indice_pobreza_multi {
+foreach urban in 0 1 2 {
+	foreach var in log_ingreso_pred_lasso_urru_c2 indice_pobreza_multi { // logingreso_xgboost {
 		analisis_focalizacion, variable(`var') urban(`urban')
 		export excel using "$Outputs/indicadores_bootstrap_`var'_urban`urban'.xlsx", replace firstrow(variables)
 	}
