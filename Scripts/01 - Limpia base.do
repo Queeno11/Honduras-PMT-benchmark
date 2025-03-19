@@ -502,7 +502,6 @@ gen random_num = runiform()
 gen test_set = (random_num<0.3)
 
 ******** Ajuste de winsor para las colas **************
-
 winsor logingreso, gen(logingreso_w) p(0.01)
 replace logingreso = logingreso_w
 drop logingreso_w
