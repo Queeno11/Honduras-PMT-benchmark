@@ -34,14 +34,13 @@ global vars_limpias_final = "privacion_saneamiento_h privacion_cocina_h privacio
 ******** Función para asignar el programa
 program define asigna_programa
 version 13
-    syntax varname(numeric), PREDICTED(varname) [LEVEL(real 0.667)]
+    syntax varname(numeric), PREDICTED(varname)
 	
 	*Fixme: Habria que tener en cuenta los weights en este paso
 	
     // Assign variables from syntax
     local outcome "`varlist'"
     local predicted "`predicted'"
-    local level "`level'"
 	
     qui {
 	
@@ -52,7 +51,8 @@ version 13
 		by UR: gen F = sum(FACTOR_P)
 		by UR: egen poblacion = max(F)
 		by UR: gen rank_pct = F/poblacion
-		gen a_`var' = (rank_pct <= `level')
+		gen a_`var' = (rank_pct <= .667) if UR==0
+        replace a_`var' = (rank_pct <= .665) if UR==1
 	drop F poblacion rank_pct
 	}
 	
@@ -73,7 +73,7 @@ end
 ******** Función para comparar modelos
 program define test_model_performance
     version 13
-    syntax varname(numeric), PREDICTED(varname) [TESTSET(varname) LEVEL(real 0.667)]
+    syntax varname(numeric), PREDICTED(varname) [TESTSET(varname)]
 
     qui {
 	preserve
@@ -89,7 +89,6 @@ program define test_model_performance
     if "`testset'" == "" {
         local testset "test_set"
     }
-    local level "`level'"
 
     tempvar residual sq_residual sq_total pos pos2 asignado_real asignado coincide tp fp fn
 

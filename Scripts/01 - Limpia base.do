@@ -4,12 +4,10 @@ import spss "D:\Datasets\EPH-PM Honduras\Consolidada 2023\CONSOLIDADA_2023.sav",
 drop if QUINTILH==6
 
 gen logingreso = log(YPERHG)
-gen pobreza = inlist(POBREZA, 1, 2)
+gen pobreza = inlist(POBREZA, 1, 2) if POBREZA!=.
 gen no_pobreza = 1-pobreza
-gen pobreza_ext = inlist(POBREZA, 1)
+gen pobreza_ext = inlist(POBREZA, 1) if POBREZA!=.
 gen no_pobreza_ext = 1-pobreza_ext
-
-gen FACTOR_P = FACTOR * TOTPER
 
 *********************************************
 **** Generar variables para PMT Honduras ****
@@ -408,17 +406,27 @@ gen privacion_hacina = (personas_por_cuartos>=3)
 egen privacion_hacina_h = max(privacion_hacina), by(HOGAR)
 
 *********************************************
-****           Cálculo del IPM           ****
+****        Base a nivel hogar           ****
 *********************************************
 
 sort NPER
+* Generamos ponderador a nivel de hogar (personal * cantidad de miembros)
+*	Esto nos permite replicar las estadisticas de pobreza de personas, 
+*	con una base que solo tiene miembros del hogar.
+gen FACTOR_P = FACTOR * TOTPER
+
 keep if NPER==1
 egen hogar = tag(HOGAR)
 keep if hogar==1
 
+*********************************************
+****           Cálculo del IPM           ****
+*********************************************
+
 gen indice_pobreza_multi = 1/12 * privacion_agua_h +  1/12 * privacion_saneamiento_h + 1/12 * privacion_cocina_h + 1/12 *  privacion_educ_h + 1/12 * privacion_asistencia_h + 1/12 * privacion_alfab_h + 1/24 * privacion_segsoc_h + 1/24 * privacion_desocup_h + 1/24 * privacion_subemp_h + 1/24 * privacion_ocup_h + 1/36 * privacion_trabinf_h + 1/36 * privacion_trabadol1_h + 1/36 * privacion_trabadol2_h + 1/24 * privacion_elec_h + 1/24 * privacion_piso_h + 1/24 * privacion_techo_h + 1/24 * privacion_pared_h + 1/24 * privacion_hacina_h
 
 drop if indice_pobreza_multi == .
+
 gen pobreza_multidim = (indice_pobreza_multi>=0.25)
 gen no_pob_multidim = 1 - pobreza_multidim
 
