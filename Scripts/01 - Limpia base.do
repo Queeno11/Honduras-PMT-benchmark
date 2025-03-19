@@ -1,4 +1,5 @@
 set seed 825
+set type double
 
 import spss "D:\Datasets\EPH-PM Honduras\Consolidada 2023\CONSOLIDADA_2023.sav", clear
 drop if QUINTILH==6
@@ -154,18 +155,19 @@ gen temp_edad_22_60 = (EDAD >= 22 & EDAD <= 60)
 gen temp_edad_60_120 = (EDAD >60)
 
 * Suma de variable edad por hogar
-bysort HOGAR: gen num_edad_0_5 = sum(temp_edad_0_5)
-bysort HOGAR: gen num_edad_6_14 = sum(temp_edad_6_14)
-bysort HOGAR: gen num_edad_15_21 = sum(temp_edad_15_21)
-bysort HOGAR: gen num_edad_22_60 = sum(temp_edad_22_60)
-bysort HOGAR: gen num_edad_60_120 = sum(temp_edad_60_120)
+sort HOGAR, stable
+by HOGAR: gen num_edad_0_5 = sum(temp_edad_0_5)
+by HOGAR: gen num_edad_6_14 = sum(temp_edad_6_14)
+by HOGAR: gen num_edad_15_21 = sum(temp_edad_15_21)
+by HOGAR: gen num_edad_22_60 = sum(temp_edad_22_60)
+by HOGAR: gen num_edad_60_120 = sum(temp_edad_60_120)
 
 * Valor máximo
-bysort HOGAR: replace num_edad_0_5 = num_edad_0_5[_N]
-bysort HOGAR: replace num_edad_6_14 = num_edad_6_14[_N]
-bysort HOGAR: replace num_edad_15_21 = num_edad_15_21[_N]
-bysort HOGAR: replace num_edad_22_60 = num_edad_22_60[_N]
-bysort HOGAR: replace num_edad_60_120 = num_edad_60_120[_N]
+by HOGAR: replace num_edad_0_5 = num_edad_0_5[_N]
+by HOGAR: replace num_edad_6_14 = num_edad_6_14[_N]
+by HOGAR: replace num_edad_15_21 = num_edad_15_21[_N]
+by HOGAR: replace num_edad_22_60 = num_edad_22_60[_N]
+by HOGAR: replace num_edad_60_120 = num_edad_60_120[_N]
 
 gen edad_0_5 = num_edad_0_5
 label variable edad_0_5 "# de personas de 0 a 5"
@@ -196,8 +198,9 @@ gen dv112 = H09
 label variable dv112 "Del total de piezas de la vivienda, ¿Cuántas utilizan para dormir?"
 
 * Por hogar cuantas personas trabajan
-bysort HOGAR: gen trabajo_hogar = sum(CA501 == 1)
-bysort HOGAR: replace trabajo_hogar = trabajo_hogar[_N]
+sort HOGAR, stable
+by HOGAR: gen trabajo_hogar = sum(CA501 == 1)
+by HOGAR: replace trabajo_hogar = trabajo_hogar[_N]
 
 gen Dependencia = (trabajo_hogar/TOTPER)
 label variable Dependencia "# de miembros trabajando la semana pasada / Tamaño del hogar entre"
@@ -213,7 +216,7 @@ replace OIH05_LPS=0 if OIH05_LPS==.
 replace OIH05_US=0 if OIH05_US==.
 
 * Sumamos jubilaciones o pensiones por hogar
-sort HOGAR NPER
+sort HOGAR NPER, stable
 by HOGAR: egen hh_OIH01_LPS = total(OIH01_LPS)
 by HOGAR: egen hh_OIH01_US = total(OIH01_US)
 by HOGAR: egen hh_OIH02_LPS = total(OIH02_LPS)
@@ -228,7 +231,7 @@ label variable Pension_bien "Reciben pensión o jubilación"
 * Alquileres
 * Reemplazamos missings por cero para poder sumarlos
 replace OIH03_LPS =0 if OIH03_LPS ==.
-sort HOGAR NPER
+sort HOGAR NPER, stable
 by HOGAR: egen hh_OIH03_LPS = total(OIH03_LPS)
 
 gen Alquileres_bien = (hh_OIH03_LPS>0)
@@ -241,7 +244,7 @@ replace OIH12_US =0 if OIH12_US==.
 replace OIH12_LPS_ESP =0 if OIH12_LPS_ESP ==.
 replace OIH12_US_ESP=0 if OIH12_US_ESP==.
 
-sort HOGAR NPER
+sort HOGAR NPER, stable
 by HOGAR: egen hh_OIH12_LPS = total(OIH12_LPS)
 by HOGAR: egen hh_OIH12_US = total(OIH12_US)
 by HOGAR: egen hh_OIH12_LPS_ESP = total(OIH12_LPS_ESP)
@@ -409,13 +412,14 @@ egen privacion_hacina_h = max(privacion_hacina), by(HOGAR)
 ****        Base a nivel hogar           ****
 *********************************************
 
-sort NPER
+
 * Generamos ponderador a nivel de hogar (personal * cantidad de miembros)
 *	Esto nos permite replicar las estadisticas de pobreza de personas, 
 *	con una base que solo tiene miembros del hogar.
 gen FACTOR_P = FACTOR * TOTPER
 
 keep if NPER==1
+
 egen hogar = tag(HOGAR)
 keep if hogar==1
 
@@ -424,6 +428,7 @@ keep if hogar==1
 *********************************************
 
 gen indice_pobreza_multi = 1/12 * privacion_agua_h +  1/12 * privacion_saneamiento_h + 1/12 * privacion_cocina_h + 1/12 *  privacion_educ_h + 1/12 * privacion_asistencia_h + 1/12 * privacion_alfab_h + 1/24 * privacion_segsoc_h + 1/24 * privacion_desocup_h + 1/24 * privacion_subemp_h + 1/24 * privacion_ocup_h + 1/36 * privacion_trabinf_h + 1/36 * privacion_trabadol1_h + 1/36 * privacion_trabadol2_h + 1/24 * privacion_elec_h + 1/24 * privacion_piso_h + 1/24 * privacion_techo_h + 1/24 * privacion_pared_h + 1/24 * privacion_hacina_h
+
 
 drop if indice_pobreza_multi == .
 
@@ -479,7 +484,8 @@ gen log_ingreso_est = 7.0556 + 0.1236 * Basura_bien + 0.4290 * Vivienda2_bien + 
 * Estimamos el ingreso
 gen ingreso_est = exp(log_ingreso_est)
 
-sort ingreso_est YTOTHG
+sort ingreso_est YTOTHG, stable
+
 
 *****************
 
@@ -502,6 +508,7 @@ replace logingreso = logingreso_w
 drop logingreso_w
 
 ***** ESTADISTICAS DE POBREZA
-bysort UR: sum pobreza [w=FACTOR_P]
+sort UR, stable
+by UR: sum pobreza [w=FACTOR_P]
 
 save "D:\World Bank\Honduras PMT benchmark\Data_out\CONSOLIDADA_2023_clean.dta", replace
