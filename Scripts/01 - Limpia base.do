@@ -6,9 +6,9 @@ drop if QUINTILH==6
 
 gen logingreso = log(YPERHG)
 gen pobreza = inlist(POBREZA, 1, 2) if POBREZA!=.
-gen no_pobreza = 1-pobreza
+gen no_pobreza = 1-pobreza if POBREZA!=.
 gen pobreza_ext = inlist(POBREZA, 1) if POBREZA!=.
-gen no_pobreza_ext = 1-pobreza_ext
+gen no_pobreza_ext = 1-pobreza_ext if POBREZA!=.
 
 *********************************************
 **** Generar variables para PMT Honduras ****
@@ -16,112 +16,118 @@ gen no_pobreza_ext = 1-pobreza_ext
 
 ** Seccion 1: Variables usadas en la regresión inicial**
 
-gen Dominio_1 = (DOMINIO == 1)
+gen Dominio_1 = (DOMINIO == 1) if DOMINIO!=.
 label variable Dominio_1 "Distrito Central"
 
-gen Dominio_2 = (DOMINIO == 2)
+gen Dominio_2 = (DOMINIO == 2) if DOMINIO!=.
 label variable Dominio_2 "San Pedro Sula"
 
-gen Dominio_3 = (DOMINIO == 3)
+gen Dominio_3 = (DOMINIO == 3) if DOMINIO!=.
 label variable Dominio_3 "Ciudades medianas"
 
-gen Dominio_4 = (DOMINIO == 4)
+gen Dominio_4 = (DOMINIO == 4) if DOMINIO!=.
 label variable Dominio_4 "Ciudades pequeñas"
 
-gen Vivienda_bien = inlist(V01, 1, 4)
+gen Vivienda_bien = inlist(V01, 1, 4) if V01!=.
 label variable Vivienda_bien "Casa individual o Apartamento"
 
-gen Paredes_bien = (V02 == 1)
+gen Paredes_bien = (V02 == 1) if V02!=.
 label variable Paredes_bien "Paredes de ladrillo, piedra o bloque"
 
-gen Piso_mal = inlist(V03, 4, 5, 7)
+gen Piso_mal = inlist(V03, 4, 5, 7) if V03!=.
 label variable Piso_mal "Pisos de Ladrillo de barro, plancha de cemento o de tierra"
 
-gen Agua_bien = (V05 == 1)
+gen Agua_bien = (V05 == 1) if V05!=.
 label variable Agua_bien "Agua de tubería instalada"
 
-gen Agua2_bien = (V06 == 1)
+gen Agua2_bien = (V06 == 1) if V06!=.
 label variable Agua2_bien "Agua dentro de la vivienda"
 
-gen Alumbrado_bien = (V07 == 1)
+gen Alumbrado_bien = (V07 == 1) if V07!=.
 label variable Agua2_bien "Alumbrado público"
 
-gen Basura_bien = inlist(V08, 1, 2, 3)
+gen Basura_bien = inlist(V08, 1, 2, 3) if V08!=.
 label variable Basura_bien "Basura la recogen o la pone en contenedores"
 
-gen Vivienda2_bien = inlist(V10, 1, 2, 3)
+gen Vivienda2_bien = inlist(V10, 1, 2, 3) if V10!=.
 label variable Vivienda2_bien "Vivienda alquilada o propietario pagando o pagada"
 
-* Eliminamos valores incoherentes de cantidad de habitaciones
-drop if (H09 == 99 | H09 == 98 | H09 <0)
+* Eliminamos valores incoherentes de cantidad de habitaciones y ambientes
+drop if (H09 == 99 | H09 == 98 | H09<0) 
+drop if (V09 == 99 | V09 == 98 | V09<0) 
 
-gen Hacinamiento = (TOTPER / H09)
+* Winsoriza la variable de cantidad de ambientes en casa. Hay valores de 22 y más.
+winsor V09, gen(V09_w) p(0.01) highonly 
+replace V09 = V09_w
+drop V09_w
+
+gen Hacinamiento = (TOTPER / H09) 
 label variable Hacinamiento  "Personas por dormitorio"
 
-gen Cocina_bien = (H02 == 1)
+gen Cocina_bien = (H02 == 1) if H02!=.
 label variable Cocina_bien "Cocina alimentos en una pieza dedica solo a cocinar"
 
-gen Cocina2_bien = inlist(H04, 3, 4)
+gen Cocina2_bien = inlist(H04, 3, 4) if H04!=.
 label variable Cocina2_bien "Cocina con gas propano o electricidad"
 
-gen Estufa_bien = (H05 == 1)
+gen Estufa_bien = (H05 == 1) if H05!=.
 label variable Estufa_bien "Cocina en estufa eléctrica"
 
-gen HaySanitario_bien = (H06 == 1)
+gen HaySanitario_bien = (H06 == 1) if H06!=.
 label variable HaySanitario_bien "Tiene servicio sanitario o letrina"
 
-gen Sanitario_bien = (H07 == 1)
+gen Sanitario_bien = (H07 == 1) if H07!=.
 label variable Sanitario_bien "Tiene inodoro conectado a alcantarilla"
 
-gen Refri_mal = (H01_1 == 0)
+gen Refri_mal = (H01_1 == 0) if H01_1!=.
 label variable Refri_mal "No tiene refrigeradora"
 
-gen Estufa_mal = (H01_2 == 0)
+gen Estufa_mal = (H01_2 == 0) if H01_2!=.
 label variable Estufa_mal "No tiene estufa"
 
-gen TV_mal = (H01_3 == 0)
+gen TV_mal = (H01_3 == 0) if H01_3!=.
 label variable TV_mal "No tiene televisor"
 
-gen Cable_mal = (H01_4 == 0)
+gen Cable_mal = (H01_4 == 0) if H01_4!=.
 label variable Cable_mal "No tiene servicio de cable"
 
-gen Radio_mal = (H01_5 == 0)
+gen Radio_mal = (H01_5 == 0) if H01_5!=.
 label variable Radio_mal "No tiene radio"
 
-gen EqSonido_mal = (H01_6 == 0)
+gen EqSonido_mal = (H01_6 == 0) if H01_6!=.
 label variable EqSonido_mal "No tiene equipo de sonido"
 
-gen Telefono_mal = (H01_7 == 0)
+gen Telefono_mal = (H01_7 == 0) if H01_7!=.
 label variable Telefono_mal "No tiene teléfono fijo"
 
-gen Carro_mal = (H01_8 == 0)
+gen Carro_mal = (H01_8 == 0) if H01_8!=.
 label variable Carro_mal "No tiene carro"
 
-gen Moto_mal = (H01_9 == 0)
+gen Moto_mal = (H01_9 == 0) if H01_9!=.
 label variable Moto_mal "No tiene motocicleta"
 
-gen Bici_mal = (H01_10 == 0)
+gen Bici_mal = (H01_10 == 0) if H01_10!=.
 label variable Bici_mal "No tiene bicicleta"
 
-gen Compu_mal = (H01_11 == 0)
+gen Compu_mal = (H01_11 == 0) if H01_11!=.
 label variable Compu_mal "No tiene computadora"
 
-gen Aire_mal = (H01_12 == 0)
+gen Aire_mal = (H01_12 == 0) if H01_12!=.
 label variable Aire_mal "No tiene aire acondicionado"
 
-gen Exterior_bien = (ME01 == 1)
+gen Exterior_bien = (ME01 == 1) if ME01!=.
 label variable Exterior_bien "Alguien del hogar vive en el exterior"
 
-gen Civil_mal = inlist(CIVIL, 2, 5, 6)
+gen Civil_mal = inlist(CIVIL, 2, 5, 6) if CIVIL!=.
 label variable Civil_mal "Jefe es viudo, soltero o en unión libre"
 
-gen Ed_basica_bien = (ED05 == 4)
+gen Ed_basica_bien = (ED05 == 4) if ED05!=.
 label variable Ed_basica_bien "Jefe completó educación básica"
 
-gen Ed_diversif_bien = inlist(ED05, 5, 6, 7)
+gen Ed_diversif_bien = inlist(ED05, 5, 6, 7) if ED05!=.
 label variable Ed_diversif_bien "Jefe completó diversificado, técnico superior o superior No universitaria"
 
-gen Ed_univer_bien = inlist(ED05, 8, 9, 10, 11)
+gen Ed_univer_bien = inlist(ED05, 8, 9, 10, 11) if ED05!=.
 label variable Ed_univer_bien "Jefe completó educación universitaria"
 
 * Proxy, no tenemos el dato
@@ -134,10 +140,10 @@ label variable Compu_bien "Jefe uso computadora el mes pasado"
 // gen Celular_bien = (TIC09 == 1)
 // label variable Celular_bien "Jefe tiene celular"
 
-gen Trabajo_bien = (CA501 == 1)
+gen Trabajo_bien = (CA501 == 1) if CA501!=.
 label variable Trabajo_bien "Trabajó la semana pasada"
 
-gen Ocupacion_bien = inlist(OC609, 1, 6)
+gen Ocupacion_bien = inlist(OC609, 1, 6)  if OC609!=.
 label variable Ocupacion_bien "Ocupación: Empleado u obrero público, Empleados, patrón o socio"
 
 * Edad del jefe
@@ -148,11 +154,11 @@ gen edad_jefe2 = EDAD^2 if NPER == 1
 label variable edad_jefe2 "Edad del jefe al cuadrado"
 
 * Variables intermedias para la edad
-gen temp_edad_0_5 = (EDAD >= 0 & EDAD <= 5)
-gen temp_edad_6_14 = (EDAD >= 6 & EDAD <= 14)
-gen temp_edad_15_21 = (EDAD >= 15 & EDAD <= 21)
-gen temp_edad_22_60 = (EDAD >= 22 & EDAD <= 60)
-gen temp_edad_60_120 = (EDAD >60)
+gen temp_edad_0_5 = (EDAD >= 0 & EDAD <= 5) if EDAD!=.
+gen temp_edad_6_14 = (EDAD >= 6 & EDAD <= 14) if EDAD!=.
+gen temp_edad_15_21 = (EDAD >= 15 & EDAD <= 21) if EDAD!=.
+gen temp_edad_22_60 = (EDAD >= 22 & EDAD <= 60) if EDAD!=.
+gen temp_edad_60_120 = (EDAD >60) if EDAD!=.
 
 * Suma de variable edad por hogar
 sort HOGAR, stable
@@ -188,11 +194,7 @@ label variable edad_60_120 "# de personas de más de 60"
 drop num_edad_0_5 num_edad_6_14 num_edad_15_21 num_edad_22_60 num_edad_60_120 temp_edad_0_5 temp_edad_6_14 temp_edad_15_21 temp_edad_22_60 temp_edad_60_120 
 
 gen dv111 = V09
-label variable dv111 "Sin incluir   la cocina, el baño y garaje ¿Cuántas piezas tiene esta viv"
-
-winsor dv111, gen(dv111_w) p(0.01)
-replace dv111 = dv111_w
-drop dv111_w
+label variable dv111 "Sin incluir la cocina, el baño y garaje ¿Cuántas piezas tiene esta viv"
 
 gen dv112 = H09
 label variable dv112 "Del total de piezas de la vivienda, ¿Cuántas utilizan para dormir?"
@@ -405,7 +407,7 @@ egen privacion_pared_h = max(privacion_pared), by(HOGAR)
 * La vivienda tiene 3 personas (TOTPER) o más por cuarto, excluyendo cocina,
 * baño y garaje (V09)
 gen personas_por_cuartos = TOTPER / V09
-gen privacion_hacina = (personas_por_cuartos>=3)
+gen privacion_hacina = (personas_por_cuartos>=3) & !mi(personas_por_cuartos)
 egen privacion_hacina_h = max(privacion_hacina), by(HOGAR)
 
 *********************************************
@@ -416,10 +418,8 @@ egen privacion_hacina_h = max(privacion_hacina), by(HOGAR)
 * Generamos ponderador a nivel de hogar (personal * cantidad de miembros)
 *	Esto nos permite replicar las estadisticas de pobreza de personas, 
 *	con una base que solo tiene miembros del hogar.
-gen FACTOR_P = FACTOR * TOTPER
-
 keep if NPER==1
-
+gen FACTOR_P = FACTOR * TOTPER
 egen hogar = tag(HOGAR)
 keep if hogar==1
 
@@ -487,16 +487,7 @@ gen ingreso_est = exp(log_ingreso_est)
 sort ingreso_est YTOTHG, stable
 
 
-*****************
-
-** Ajuste para probar
-*gen diferencia = abs(logingreso - log_ingreso_est)
-
-*gen dif_porcent = abs(diferencia / logingreso)
-*histogram dif_porcent if dif_porcent < 4 & dif_porcent > 0.7
-
-*gen outliers_70 = (dif_porcent > 0.7)
-*gen outliers_30 = (dif_porcent > 0.3)
+***************** Asigna grupo de test
 
 gen random_num = runiform()
 gen test_set = (random_num<0.3)
