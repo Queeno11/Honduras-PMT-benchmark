@@ -501,4 +501,7 @@ winsor logingreso, gen(logingreso_w) p(0.01)
 replace logingreso = logingreso_w
 drop logingreso_w
 
+***** ESTADISTICAS DE POBREZA
+bysort UR: sum pobreza [w=FACTOR_P]
+
 save "D:\World Bank\Honduras PMT benchmark\Data_out\CONSOLIDADA_2023_clean.dta", replace

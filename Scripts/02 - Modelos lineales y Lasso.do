@@ -51,8 +51,8 @@ version 13
 		by UR: gen F = sum(FACTOR_P)
 		by UR: egen poblacion = max(F)
 		by UR: gen rank_pct = F/poblacion
-		gen a_`var' = (rank_pct <= .667) if UR==0
-        replace a_`var' = (rank_pct <= .665) if UR==1
+		gen a_`var' = (rank_pct <= .6671753) if UR==1
+        replace a_`var' = (rank_pct <= .665468) if UR==2
 	drop F poblacion rank_pct
 	}
 	
