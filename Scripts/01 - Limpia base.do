@@ -121,13 +121,13 @@ label variable Exterior_bien "Alguien del hogar vive en el exterior"
 gen Civil_mal = inlist(CIVIL, 2, 5, 6) if CIVIL!=.
 label variable Civil_mal "Jefe es viudo, soltero o en unión libre"
 
-gen Ed_basica_bien = (ED05 == 4) if ED05!=.
+gen Ed_basica_bien = (ED05 == 4 | ED05 == .) // Imputo educación
 label variable Ed_basica_bien "Jefe completó educación básica"
 
-gen Ed_diversif_bien = inlist(ED05, 5, 6, 7) if ED05!=.
+gen Ed_diversif_bien = inlist(ED05, 5, 6, 7)
 label variable Ed_diversif_bien "Jefe completó diversificado, técnico superior o superior No universitaria"
 
-gen Ed_univer_bien = inlist(ED05, 8, 9, 10, 11) if ED05!=.
+gen Ed_univer_bien = inlist(ED05, 8, 9, 10, 11)
 label variable Ed_univer_bien "Jefe completó educación universitaria"
 
 * Proxy, no tenemos el dato
@@ -500,5 +500,8 @@ drop logingreso_w
 ***** ESTADISTICAS DE POBREZA
 sort UR, stable
 by UR: sum pobreza [w=FACTOR_P]
+
+* Elimina obs con missings en variables del conjunto 2 (3 observaciones)
+drop if mi(privacion_saneamiento_h, privacion_cocina_h, privacion_educ_h, privacion_asistencia_h, privacion_alfab_h, Piso_mal, Paredes_bien, EqSonido_mal, HaySanitario_bien, Sanitario_bien, Cocina2_bien, Hacinamiento, Cable_mal, Moto_mal, Bici_mal, Dominio_1, Dominio_2, Dominio_3, Pension_bien, Refri_mal, Aire_mal, Carro_mal, Compu_mal, dv111, Ed_diversif_bien, Ed_univer_bien, edad_0_5, edad_15_21, edad_60_120, edad_6_14, Estufa_mal, Agua2_bien, Dependencia)
 
 save "$PATH\Data_out\CONSOLIDADA_2023_clean.dta", replace
