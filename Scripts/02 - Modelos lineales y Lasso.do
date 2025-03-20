@@ -177,7 +177,7 @@ foreach zona in `zonas'{
 	local seed = `seed' + 1
 }
 egen log_ingreso_pred_lasso_urru_c2 = rowfirst(lasso*)
-lassocoef lasso_all_l_*, display(coef, standardized)
+lassocoef lasso_all_l_*, display(coef, penalized)
 
 
 **** Comparamos los modelos
@@ -208,7 +208,7 @@ restore
 *** Exportamos los betas
 
 * Exportamos los betas
-lassocoef lasso_all_l_*, display(coef, standardized)
+lassocoef lasso_all_l_*, display(coef, penalized)
 
 matrix coefs = r(coef)
 local models = r(names)
