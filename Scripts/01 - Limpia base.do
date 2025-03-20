@@ -1,5 +1,6 @@
 set seed 825
 set type double
+global PATH = "D:\World Bank\Honduras PMT benchmark"
 
 import spss "D:\Datasets\EPH-PM Honduras\Consolidada 2023\CONSOLIDADA_2023.sav", clear
 drop if QUINTILH==6
@@ -501,4 +502,4 @@ drop logingreso_w
 sort UR, stable
 by UR: sum pobreza [w=FACTOR_P]
 
-save "D:\World Bank\Honduras PMT benchmark\Data_out\CONSOLIDADA_2023_clean.dta", replace
+save "$PATH\Data_out\CONSOLIDADA_2023_clean.dta", replace

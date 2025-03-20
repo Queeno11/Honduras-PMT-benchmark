@@ -1,9 +1,8 @@
 clear all
+global PATH = "D:\World Bank\Honduras PMT benchmark"
+cd "$PATH\Data_out"
 
-cd "D:\World Bank\Honduras PMT benchmark\Data_out"
-*use "CONSOLIDADA_2023_clean.dta", replace
-
-use "CONSOLIDADA_2023_clean.dta"
+use "CONSOLIDADA_2023_clean.dta", replace
 
 ******** Defino las variables que vamos a usar
 
@@ -51,22 +50,15 @@ version 13
 		by UR: gen F = sum(FACTOR_P)
 		by UR: egen poblacion = max(F)
 		by UR: gen rank_pct = F/poblacion
+        * Tasa de pobreza urbana = 66.71753%, rural = 66.5468%
 		gen a_`var' = (rank_pct <= .6671753) if UR==1
         replace a_`var' = (rank_pct <= .665468) if UR==2
-	drop F poblacion rank_pct
+	    drop F poblacion rank_pct
 	}
 	
 	rename a_`outcome' asignado_real
 	rename a_`predicted' asignado
-	
-// 	local level_100 = `level'*100
-// 	bysort UR: egen limite = pctile(`outcome'), p(`level_100')
-// 	bysort UR: egen limite_pred = pctile(`predicted'), p(`level_100')
-//	
-//	
-//     generate byte asignado_real = (`outcome' <= limite)
-//     generate byte asignado = (`predicted' <= limite_pred)
-	}
+    }
 end
 
 
@@ -87,12 +79,13 @@ program define test_model_performance
     local predicted "`predicted'"
     local testset "`testset'"
     if "`testset'" == "" {
+        * In case the testset variable is not specified, we assume that we are using the standard naming
         local testset "test_set"
     }
 
     tempvar residual sq_residual sq_total pos pos2 asignado_real asignado coincide tp fp fn
 
-    // R-squared calculation
+    // R-squared calculation for the test set
     generate `residual' = `outcome' - `predicted'
     generate `sq_residual' = `residual'^2
     summarize `outcome' [w=FACTOR_P], meanonly
@@ -108,11 +101,12 @@ program define test_model_performance
     // Relative position
 	asigna_programa `outcome', predicted(`predicted')
 
+    // Accuracy calculation for the test set
     generate byte `coincide' = (asignado_real == asignado)
     quietly summarize `coincide' [w=FACTOR_P], meanonly
     noi display "Accuracy: " r(mean)
 
-    // F2 score calculation
+    // F2 score calculation for the test set
     generate byte `tp' = (asignado_real == 1 & asignado == 1)
     generate byte `fp' = (asignado_real == 0 & asignado == 1)
     generate byte `fn' = (asignado_real == 1 & asignado == 0)
@@ -188,7 +182,7 @@ lassocoef lasso_all_l_*, display(coef, standardized)
 
 
 **** Comparamos los modelos
-local paracomparar log_ingreso_pred_lasso_urru_c1 log_ingreso_pred_lasso_urru_c2 log_ingreso_pred_lm_urru_c1 log_ingreso_pred_lm_urru_c2
+local paracomparar "log_ingreso_pred_lasso_urru_c1 log_ingreso_pred_lasso_urru_c2 log_ingreso_pred_lm_urru_c1 log_ingreso_pred_lm_urru_c2"
 
 foreach var in `paracomparar' {
     display "`var'"
