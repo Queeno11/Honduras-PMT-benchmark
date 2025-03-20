@@ -85,9 +85,8 @@ bysort hogid: gen trabajo_hogar = sum(x_32 == 2) if x_32!=.
 bysort hogid: replace trabajo_hogar = trabajo_hogar[_N]
 destring v_02c, gen(tot_personas) force
 * ahora uso esa variable para el calculo
-gen Dependencia = (trabajo_hogar/tot_personas) if (trabajo_hogar!=. &  tot_personas!=.)
+gen Dependencia = (trabajo_hogar/tot_personas) if (trabajo_hogar!=. &  tot_personas!=. & tot_personas>=trabajo_hogar)
 label variable Dependencia "# de miembros trabajando la semana pasada / Tamaño del hogar entre"
-drop trabajo_hogar
 
 *** Dominios
 
@@ -215,13 +214,15 @@ keep if x_08 == 1
 
 save "C:\Users\pilih\Documents\World Bank\Honduras\Replication PMT IPM\2. Data\Data_out\SIRBHO_intermedia_clean.dta", replace
 
+use "C:\Users\pilih\Documents\World Bank\Honduras\Replication PMT IPM\2. Data\Data_out\SIRBHO_intermedia_clean.dta", clear
+
 *** Chequeo de las variables que usamos ***
 *global vars_orig level1id numhog x_00 iii_08 value* v_05 x_32 tot_personas iii_11 edad iii_03 tot_piezas moto iii_05 iii_10 x_30 x_08 x_28 x_29 v_13e v_13h
 *sum $vars_orig
 
 *global vars_pmt_tot Agua2_bien Aire_mal Bici_mal Cable_mal Carro_mal Cocina2_bien Compu_mal Dependencia Ed_diversif_bien Ed_univer_bien EqSonido_mal Estufa_mal Hacinamiento HaySanitario_bien Moto_mal Paredes_bien Pension_bien Piso_mal Refri_mal Sanitario_bien edad_0_5 edad_15_21 edad_60_120 edad_6_14 privacion_alfab_h privacion_asistencia_h privacion_cocina_h privacion_educ_h privacion_saneamiento_h
 
-global vars_pmt_ru Agua2_bien Aire_mal Bici_mal Cable_mal Carro_mal Compu_mal Dependencia Ed_diversif_bien Ed_univer_bien EqSonido_mal Estufa_mal Hacinamiento HaySanitario_bien Moto_mal Paredes_bien Pension_bien Piso_mal Refri_mal Sanitario_bien edad_0_5 edad_15_21 edad_6_14 privacion_alfab_h privacion_cocina_h privacion_educ_h 
+global vars_pmt_ru privacion_cocina_h privacion_educ_h privacion_alfab_h Piso_mal HaySanitario_bien Cable_mal Moto_mal Refri_mal Carro_mal Compu_mal dv111 Ed_diversif_bien Ed_univer_bien edad_0_5 edad_15_21 edad_6_14 Estufa_mal Agua2_bien Dependencia Paredes_bien Sanitario_bien Bici_mal Aire_mal 
 
 keep level1id $vars_pmt_ru ipm ipmo
 
@@ -274,11 +275,11 @@ merge m:1 key using "C:\Users\pilih\Documents\World Bank\Honduras\Replication PM
 
 drop key _merge
 
-/*
+* Paso nas a cero
 foreach var of varlist _all {
     replace `var' = 0 if missing(`var')
 }
-*/
+
 
 gen cons = 1
 
@@ -296,14 +297,20 @@ br log_ingreso_pred*
 preserve
 sort log_ingreso_pred
 keep ipm ipmo log_ingreso_pred
-save "C:\Users\pilih\Documents\World Bank\Honduras\Replication PMT IPM\2. Data\Data_out\ipmvspred.dta"
+save "C:\Users\pilih\Documents\World Bank\Honduras\Replication PMT IPM\2. Data\Data_out\ipmvspred.dta", replace
 restore
 
-***
 
+*** Comparacion de las medias con las de la EPH
+global vars_pmt_ru privacion_cocina_h privacion_educ_h privacion_alfab_h Piso_mal HaySanitario_bien Cable_mal Moto_mal Refri_mal Carro_mal Compu_mal dv111 Ed_diversif_bien Ed_univer_bien edad_0_5 edad_15_21 edad_6_14 Estufa_mal Agua2_bien Dependencia Paredes_bien Sanitario_bien Bici_mal Aire_mal 
 
-***
-global vars_pmt_ru Agua2_bien Aire_mal Bici_mal Cable_mal Carro_mal Compu_mal Dependencia Ed_diversif_bien Ed_univer_bien EqSonido_mal Estufa_mal Hacinamiento HaySanitario_bien Moto_mal Paredes_bien Pension_bien Piso_mal Refri_mal Sanitario_bien edad_0_5 edad_15_21 edad_6_14 privacion_alfab_h privacion_cocina_h privacion_educ_h
 
 sum $vars_pmt_ru
+
+*** 
+*histogram log_ingreso_pred, bin(100)
+histogram ingreso_pred if ingreso_pred<500000, bin(100)
+kdensity log_ingreso_pred
+
+
 
