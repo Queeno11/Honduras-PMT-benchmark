@@ -239,7 +239,7 @@ foreach v of local varnames {
 
 *** Exportamos la base
 preserve
-keep HOGAR log_ingreso_pred_lasso_urru_c2 test_set DOMINIO
+keep HOGAR log_ingreso_pred_lasso_urru_c2 test_set DOMINIO FACTOR FACTOR_P
 save "preds lasso pmt", replace
 restore
 
