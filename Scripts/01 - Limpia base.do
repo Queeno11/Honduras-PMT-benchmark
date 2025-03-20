@@ -109,7 +109,7 @@ label variable Moto_mal "No tiene motocicleta"
 gen Bici_mal = (H01_10 == 0) if H01_10!=.
 label variable Bici_mal "No tiene bicicleta"
 
-gen Compu_mal = (H01_11 == 0) if H01_11!=.
+gen Compu_mal = (H01_11 == 0 | H01_11 ==.) // Nota: se asume que . es cero, porque hay muchos missings en esta variable
 label variable Compu_mal "No tiene computadora"
 
 gen Aire_mal = (H01_12 == 0) if H01_12!=.
