@@ -1,17 +1,10 @@
 clear all
-global Path = "D:\World Bank\Honduras PMT benchmark"
-global Data_out = "$Path\Data_out"
-global Outputs = "$Path\Outputs"
-
-// use "Data_out/data_indice_multidimensional_consolidada", replace
 
 graph set window fontface "Times New Roman"
 global graph_aspect = "graphregion(color(white)) plotregion(margin(zero))"
 
-use "$Data_out/preds lasso pmt.dta", replace
-merge 1:1 HOGAR using "$Data_out/Predicts_XGBoost.dta"
-
-gen FACTOR_P = FACTOR * TOTPER
+use "$DATA_OUT/preds lasso pmt.dta", replace
+merge 1:1 HOGAR using "$DATA_OUT/Predicts_XGBoost.dta"
 
 drop if mi(indice_pobreza_multi)
 drop if mi(log_ingreso_pred_lasso_urru_c)
@@ -46,7 +39,7 @@ twoway (scatter ranking_IPM ranking_PMT if UR==0, msize(tiny) mstyle(smcircle) m
 * Combine the two graphs side by side
 graph combine urban rural, ///
     xsize(10) ysize(5)
-graph export "$Outputs/inclusion y exclusion.png", width(1500) replace
+graph export "$OUTPUTS/inclusion y exclusion.png", width(1500) replace
 
 
 ******************************************
@@ -71,8 +64,8 @@ replace UR = 0 if new
 label define urban 0 "Total" 1 "Urbano" 2 "Rural"
 label values UR urban 
 
-graph hbox YPERHG_nopob_IPM YPERHG_nopob_PMT [w=FACTOR], nooutsides over(UR) aspectratio(0.6) box(1, color(243 145 21) fcolor(243 145 21) fintensity(inten40)) box(2, color(114 156 177) fcolor(148 202 228) fintensity(inten100))  legend(region(lstyle(none)) cols(1) label(2 "Ingreso per capita de hogares excluídos por PMT") label(1 `"Ingreso per capita de hogares excluídos por IPM"')) $graph_aspect
-graph export "D:\World Bank\Honduras PMT benchmark\Outputs\boxplot_excluídos.png", width(1500) replace
+graph hbox YPERHG_nopob_IPM YPERHG_nopob_PMT [w=FACTOR_P], nooutsides over(UR) aspectratio(0.6) box(1, color(243 145 21) fcolor(243 145 21) fintensity(inten40)) box(2, color(114 156 177) fcolor(148 202 228) fintensity(inten100))  legend(region(lstyle(none)) cols(1) label(2 "Ingreso per capita de hogares excluídos por PMT") label(1 `"Ingreso per capita de hogares excluídos por IPM"')) $graph_aspect
+graph export "$OUTPUTS\boxplot_excluídos.png", width(1500) replace
 sum YPERHG_nopob_IPM YPERHG_nopob_PMT, d
 
 restore

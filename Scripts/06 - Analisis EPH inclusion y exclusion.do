@@ -1,7 +1,7 @@
 clear all
-global Path = "D:\World Bank\Honduras PMT benchmark"
-global Data_out = "$Path\Data_out"
-global Outputs = "$Path\Outputs"
+global PATH = "D:\World Bank\Honduras PMT benchmark"
+global DATA_OUT = "$PATH\Data_out"
+global OUTPUTS = "$PATH\Outputs"
 
 program define analisis_focalizacion, eclass
     syntax , variable(string) urban(integer) [test_set(string)]
@@ -14,10 +14,12 @@ program define analisis_focalizacion, eclass
 	
 	frame change main
 	
-	use "$Data_out/preds lasso pmt.dta", replace
-	merge 1:1 HOGAR using "$Data_out/Predicts_XGBoost.dta"
+	use "$DATA_OUT/preds lasso pmt.dta", replace
+	merge 1:1 HOGAR using "$DATA_OUT/Predicts_XGBoost.dta"
+
+	* With this, UR = 1 is rural and UR = 2 is urban. `urban'==0 means all
 	replace UR = UR+1
-	save "$Data_out\Consolidada con logs estimaciones", replace
+	save "$DATA_OUT\Consolidada con logs estimaciones", replace
 	
 	if `urban'!=0 {
 		keep if UR==`urban'
@@ -26,13 +28,14 @@ program define analisis_focalizacion, eclass
 	if "`test_set'"=="test_set" {
 	    keep if test_set==1
 	}
+
 	gen linea_pob_extr = .
-	replace linea_pob_extr = 2468 if UR==1
-	replace linea_pob_extr = 1900 if UR==2
+	replace linea_pob_extr = 2465.97 if UR==1
+	replace linea_pob_extr = 1901.71 if UR==2
 
 	gen linea_pob = .
-	replace linea_pob = 4930 if UR==1
-	replace linea_pob = 2540 if UR==2
+	replace linea_pob = 4931.94 if UR==1
+	replace linea_pob = 2538.78 if UR==2
 	
 	gen pobre = (YPERHG < linea_pob)
 	gen pobre_extr = (YPERHG < linea_pob_extr)
@@ -46,7 +49,9 @@ program define analisis_focalizacion, eclass
 	else {	
 		gsort UR `variable'
 	}
-	by UR: gen pos = _n/_N
+	by UR: gen q_personas = sum(FACTOR_P) 
+	by UR: egen tot_personas = sum(FACTOR_P) 
+	by UR: gen pos = q_personas/tot_personas
 
 
 	qui forvalues s = 1/1000{
@@ -91,16 +96,10 @@ program define analisis_focalizacion, eclass
 
 end
 
-// foreach urban in 0 1 2 {
-// 	foreach var in log_ingreso_pred_lasso_urru_c2 logingreso_xgboost indice_pobreza_multi {
-// 		analisis_focalizacion, variable(`var') urban(`urban') test_set(test_set)
-// 		export excel using "$Outputs/indicadores_bootstrap_`var'_urban`urban'_test.xlsx", replace firstrow(variables)
-// 	}
-// }
-
 foreach urban in 0 1 2 {
+	* 0 is all, 1 is rural, 2 is urban
 	foreach var in log_ingreso_pred_lasso_urru_c2 indice_pobreza_multi { // logingreso_xgboost {
 		analisis_focalizacion, variable(`var') urban(`urban')
-		export excel using "$Outputs/indicadores_bootstrap_`var'_urban`urban'.xlsx", replace firstrow(variables)
+		export excel using "$OUTPUTS/indicadores_bootstrap_`var'_urban`urban'.xlsx", replace firstrow(variables)
 	}
 }

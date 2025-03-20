@@ -1,45 +1,36 @@
 clear all
-global Path = "D:\World Bank\Honduras PMT benchmark"
-global Data_out = "$Path\Data_out"
-global Outputs = "$Path\Outputs"
+set type double
 
 graph set window fontface "Times New Roman"
 global graph_aspect = "graphregion(color(white)) plotregion(margin(zero))"
 
-use "$Data_out/preds lasso pmt.dta", replace
-merge 1:1 HOGAR using "$Data_out/Predicts_XGBoost.dta"
+use "$DATA_OUT/preds lasso pmt.dta", replace
+merge 1:1 HOGAR using "$DATA_OUT/Predicts_XGBoost.dta"
 
-******************************************
-******    Indicadores de posición   ******
-******************************************
-gen FACTOR_P = FACTOR * TOTPER
+* With this, UR = 1 is rural and UR = 2 is urban. `urban'==0 means all
 replace UR = UR + 1
-*** IPM
-gsort -indice_pobreza_multi 
-gen ranking_IPM = _n/_N
-**  39.62 es el % de pobres por IPM (IPM>=.25)
 
 
 **********************************************
 ******   	  Microsimulaciones 	     *****
 **********************************************
 
-** Inferencia de la línea de pobreza de YPERHG
-* NOTA: no tenemos la linea de pobreza en la base, pero la podemos inferir, porque si hacemos estos gráficos que siguen acá, vemos que el salto es discreto entre los dos histogramas
-// twoway (hist YPERHG  if POBREZA==1 & DOMINIO==4, color(red%30)) (hist YPERHG  if POBREZA==2  & DOMINIO==4 , color(green%30)) (hist YPERHG  if POBREZA==3 & YPERHG<10000 & DOMINIO==4 , color(blue%30))
-
 gen linea_pob_extr = .
-replace linea_pob_extr = 2468 if UR==1
-replace linea_pob_extr = 1900 if UR==2
+replace linea_pob_extr = 2465.97 if UR==1
+replace linea_pob_extr = 1901.71 if UR==2
 
 gen linea_pob = .
-replace linea_pob = 4930 if UR==1
-replace linea_pob = 2540 if UR==2
+replace linea_pob = 4931.94 if UR==1
+replace linea_pob = 2538.78 if UR==2
 
 gen pobre = (YPERHG < linea_pob)
 gen pobre_extr = (YPERHG < linea_pob_extr)
 
-bysort DOMINIO: egen porcentaje_inclusion = mean(pobre) 
+* Calculo la weighted mean de pobreza (pobreza es la variable que ya me da construida la EPH)
+bysort DOMINIO: egen total_pobre_weight = total(pobreza * FACTOR_P)
+bysort DOMINIO: egen total_weight = total(FACTOR_P)
+gen porcentaje_inclusion = total_pobre_weight / total_weight
+drop total_pobre_weight total_weight
 tab porcentaje_inclusion
 
 gen pobre_IPM = (indice_pobreza_multi>=.25)
@@ -68,8 +59,11 @@ foreach multiplicador in 1 1.29 2 3.81 4 5.01 8 {
 
 			if "`ind'"!="IPM" {
 				sort `ind'	
-				gen pos_`newname' = _n / _N
+				gen q_personas = sum(FACTOR_P) 
+				egen tot_personas = sum(FACTOR_P) 
+				gen pos_`newname' = q_personas/tot_personas
 				gen pobre_`newname' = (pos_`newname'<=porcentaje_inclusion)	
+				drop q_personas tot_personas
 			}	
 			sum pobre_`newname' [w=FACTOR_P]
 			local q_hog = r(sum)
@@ -113,10 +107,13 @@ foreach divisor in 2 4 8 {
 			local monto = 4020/12 * `divisor' 
 
 			sort `ind'	
-			gen pos_`newname' = _n / _N
+			gen q_personas = sum(FACTOR_P) 
+			egen tot_personas = sum(FACTOR_P) 
+			gen pos_`newname' = q_personas/tot_personas
 			gen pobre_`newname' = (pos_`newname'<=porcentaje_inclusion_sim)	
 			sum pobre_`newname' [w=FACTOR_P]
 			local q_hog = r(sum)
+			drop q_personas tot_personas
 			
 			gen asignacion_`newname' = 0
 			replace asignacion_`newname' = `monto' if pobre_`newname'==1
@@ -138,7 +135,7 @@ foreach divisor in 2 4 8 {
 
 			sum pe_`newname' [w=FACTOR_P]
 			local pe_`newname' = r(mean)
-			noi display "Indice Pobreza: (asignado `ind'): `pe_`newname''"
+			noi display "Indice Pobreza: (asignado `ind', `year', `divisor'): `pe_`newname''"
 			
 			* Store the values in the collector
 			post collector ("`ind'") ("`year'") (`monto') (`q_hog') (`p_`newname'') (`pe_`newname'')
@@ -149,4 +146,4 @@ foreach divisor in 2 4 8 {
 
 postclose collector
 use `results', replace
-export excel using "$Outputs\simluaciones_pobreza.xlsx", replace firstrow(variables)
+export excel using "$OUTPUTS\simluaciones_pobreza.xlsx", replace firstrow(variables)

@@ -1,8 +1,7 @@
 set seed 825
 set type double
-global PATH = "D:\World Bank\Honduras PMT benchmark"
 
-import spss "D:\Datasets\EPH-PM Honduras\Consolidada 2023\CONSOLIDADA_2023.sav", clear
+import spss "$EPHPM_PATH", clear
 drop if QUINTILH==6
 
 gen logingreso = log(YPERHG)

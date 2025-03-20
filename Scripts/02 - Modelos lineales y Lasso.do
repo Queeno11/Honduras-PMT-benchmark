@@ -1,5 +1,4 @@
 clear all
-global PATH = "D:\World Bank\Honduras PMT benchmark"
 cd "$PATH\Data_out"
 
 use "CONSOLIDADA_2023_clean.dta", replace
@@ -218,7 +217,7 @@ local varnames: rownames coefs
 *local varnames : rownames coefs
 
 // Set up the Excel file and add header labels
-putexcel set "D:\World Bank\Honduras PMT benchmark\Outputs\lasso_coefs.xlsx", replace
+putexcel set "$OUTPUTS\lasso_coefs.xlsx", replace
 putexcel A1 = "Variable"
 putexcel B2 = matrix(coefs)
 
