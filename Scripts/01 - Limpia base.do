@@ -455,7 +455,7 @@ gen indice_pobreza_multi = 1/12 * privacion_agua_h +  1/12 * privacion_saneamien
 
 drop if indice_pobreza_multi == .
 
-gen pobreza_multidim = (indice_pobreza_multi>=0.25)
+gen pobreza_multidim = (indice_pobreza_multi>0.25)
 gen no_pob_multidim = 1 - pobreza_multidim
 
 
