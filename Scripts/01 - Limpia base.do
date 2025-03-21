@@ -146,6 +146,7 @@ label variable Compu_bien "Jefe uso computadora el mes pasado"
 // label variable Celular_bien "Jefe tiene celular"
 
 gen Trabajo_bien = (CA501 == 1) if CA501!=.
+replace Trabajo_bien = 1 if inlist(CA505, 1, 2, 3, 4, 5)
 label variable Trabajo_bien "Trabajó la semana pasada"
 
 gen Ocupacion_bien = inlist(OC609, 1, 6)  if OC609!=.
@@ -366,14 +367,13 @@ egen privacion_subemp_a_h = max(privacion_subemp), by(HOGAR)
 
 * todos los miembros del hogar en edad productiva SON desocupados (CONDACT==2),
 * excepto que se trate de personas en condición de inactividad (CONDACT==3).
-gen privacion_ocup = (CONDACT==2) if !mi(CONDACT)
-egen q_no_ocup = total(privacion_ocup), by(HOGAR)
-gen ocupados = (CONDACT==1) if !mi(CONDACT)
-gen inactivos = (CONDACT==3) if !mi(CONDACT)
-egen ocupados_h = total(ocupados), by (HOGAR)
-egen desocupados_h = total(privacion_ocup), by (HOGAR)
-egen inactivos_h = total(inactivos), by (HOGAR)
-gen privacion_ocup_h = ((q_no_ocup / TOTPER) == 1) if !mi(CONDACT)
+gen desocup = (CONDACT==2) if !mi(CONDACT)
+gen ocupado = (CONDACT==1) if !mi(CONDACT)
+gen inactivo = (CONDACT==3) if !mi(CONDACT)
+egen ocupados_h = total(ocupado), by (HOGAR)
+egen desocupados_h = total(desocup), by (HOGAR)
+egen inactivos_h = total(inactivo), by (HOGAR)
+gen privacion_ocup_h = (desocupados_h == (desocupados_h + ocupados_h))
 
 egen privacion_subemp_h = max(privacion_subemp_a_h, privacion_ocup_h)
 
