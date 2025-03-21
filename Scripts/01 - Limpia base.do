@@ -416,7 +416,6 @@ egen privacion_piso_h = max(privacion_piso), by(HOGAR)
 gen privacion_techo = (inlist(V04, 7, 8)) if !mi(V04)
 egen privacion_techo_h = max(privacion_techo), by(HOGAR)
 
-
 *######*  Material Paredes
 * La vivienda tiene pared de Bahareque, vara o caña o material de
 * desecho
@@ -431,7 +430,9 @@ gen privacion_hacina = (personas_por_cuartos>=3) & !mi(personas_por_cuartos)
 egen privacion_hacina_h = max(privacion_hacina), by(HOGAR)
 
 *######*  Acervo Patrimonial
-gen privacion_patrimonio = .
+egen suma_mal = rowtotal(TV_mal Estufa_mal Bici_mal Moto_mal Refri_mal Carro_mal Radio_mal)
+gen privacion_patrimonio = (suma_mal <= 2) if !missing(TV_mal, Estufa_mal, Bici_mal, Moto_mal, Refri_mal, Carro_mal, Radio_mal)
+replace privacion_patrimonio = 0 if suma_mal > 2 & !missing(TV_mal, Estufa_mal, Bici_mal, Moto_mal, Refri_mal, Carro_mal, Radio_mal)
 
 *********************************************
 ****        Base a nivel hogar           ****
