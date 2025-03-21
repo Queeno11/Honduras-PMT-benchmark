@@ -6,6 +6,7 @@ global graph_aspect = "graphregion(color(white)) plotregion(margin(zero))"
 
 use "$DATA_OUT/preds lasso pmt.dta", replace
 merge 1:1 HOGAR using "$DATA_OUT/Predicts_XGBoost.dta"
+keep if log_ingreso_pred_lasso_urru_c2 != .
 
 * With this, UR = 1 is rural and UR = 2 is urban. `urban'==0 means all
 replace UR = UR + 1
@@ -23,12 +24,9 @@ gen linea_pob = .
 replace linea_pob = 4931.94 if UR==1
 replace linea_pob = 2538.78 if UR==2
 
-gen pobre = (YPERHG < linea_pob)
-gen pobre_extr = (YPERHG < linea_pob_extr)
-
 * Calculo la weighted mean de pobreza (pobreza es la variable que ya me da construida la EPH)
-bysort DOMINIO: egen total_pobre_weight = total(pobreza * FACTOR_P)
-bysort DOMINIO: egen total_weight = total(FACTOR_P)
+bysort UR: egen total_pobre_weight = total(pobreza * FACTOR_P)
+bysort UR: egen total_weight = total(FACTOR_P)
 gen porcentaje_inclusion = total_pobre_weight / total_weight
 drop total_pobre_weight total_weight
 tab porcentaje_inclusion
@@ -36,12 +34,11 @@ tab porcentaje_inclusion
 gen pobre_IPM = (indice_pobreza_multi>=.25)
 gen rankIPM = -indice_pobreza_multi
 
-
 *** SIMULACION
-sum pobre [w=FACTOR_P]
+sum pobreza [w=FACTOR_P]
 local pob = r(mean)
 noi display "Indice Pobreza: `pob'" 
-sum pobre_extr [w=FACTOR_P]
+sum pobreza_ext [w=FACTOR_P]
 local pob = r(mean)
 noi display "Indice Pobreza Extr: `pob'" 
 
@@ -49,22 +46,61 @@ noi display "Indice Pobreza Extr: `pob'"
 tempfile results
 postfile collector str50 Indicador str50 Año Monto Hogares_Beneficiarios Indice_Pobreza Indice_Pobreza_Extrema using `results', replace
 
-foreach multiplicador in 1 1.29 2 3.81 4 5.01 8 { 
-	qui foreach ind in IPM log_ingreso_pred_lasso_urru_c2 logingreso_xgboost rankIPM {
+* Probamos con diferentes multiplicadores y divisiores de montos
+qui {
+foreach multiplicador in 1 1.29 2 3.81 4 5.01 8 .25 .5  { 
+	foreach ind in IPM log_ingreso_pred_lasso_urru_c2 logingreso_xgboost rankIPM {
 		foreach year in "first" "after" {
 			preserve
-
 			local newname = subinstr("`ind'", "log_ingreso_pred_", "", .)
 			local monto = 4020/12 * `multiplicador' 
 
 			if "`ind'"!="IPM" {
-				sort `ind'	
-				gen q_personas = sum(FACTOR_P) 
-				egen tot_personas = sum(FACTOR_P) 
-				gen pos_`newname' = q_personas/tot_personas
+
+				sort UR `ind'	
+				by UR: gen q_personas = sum(FACTOR_P) 
+				by UR: egen tot_personas = sum(FACTOR_P) 
+				by UR: gen pos_`newname' = q_personas/tot_personas
+				* Split the observation in between the threshold (porcentaje_inclusion)
+				*	and adjust the proportion of people in each correspoding interval
+				* This is to ensure that the number of personas assigned to the program
+				*	is the same for all the indicators. Otherwise, it depends on the actual
+				*	FACTOR_P ordered values.
+				gen pos_prev_`newname' = pos_`newname'[_n-1]
+				gen share_to_split = .
+				gen share_to_threshold = .
+				gen share_above_threshold = .
+				levelsof UR, local(zonas)
+				foreach zona in `zonas'{
+					sum pos_`newname' if pos_`newname'>porcentaje_inclusion & UR==`zona'
+					local per_in_bound = r(min) 
+					replace share_to_split = pos_`newname' - pos_prev_`newname' if pos_`newname'==`per_in_bound' & UR==`zona'
+					replace share_to_threshold = porcentaje_inclusion - pos_prev_`newname' if pos_`newname'==`per_in_bound' & UR==`zona'
+					replace share_above_threshold = pos_`newname' - porcentaje_inclusion if pos_`newname'==`per_in_bound' & UR==`zona'
+					expand 2 if pos_`newname'==`per_in_bound', gen(tag)	
+
+					* Assert only one change will be made
+					display " pos_`newname'==`per_in_bound' & UR==`zona' & tag==1"
+					count if  pos_`newname'==`per_in_bound' & UR==`zona' & tag==1
+					assert r(N)==1
+					qui count if pos_`newname'==`per_in_bound' & UR==`zona' & tag==0
+					assert r(N)==1
+
+					* Change FACTOR_P proportionately
+					replace FACTOR_P = FACTOR_P * share_to_threshold / share_to_split if pos_`newname'==`per_in_bound' & UR==`zona' & tag==1
+					replace FACTOR_P = FACTOR_P * share_above_threshold / share_to_split if pos_`newname'==`per_in_bound' & UR==`zona' & tag==0
+					* Change position in the first duplicate
+					replace pos_`newname' = porcentaje_inclusion if pos_`newname'==`per_in_bound' & UR==`zona' & tag==1 
+
+					drop tag
+				}
+				sort UR pos_`newname'
+
+				* Correct values based on corresponding shares
 				gen pobre_`newname' = (pos_`newname'<=porcentaje_inclusion)	
-				drop q_personas tot_personas
+				drop share_above_threshold share_to_split share_to_threshold pos_prev_`newname'
 			}	
+
 			sum pobre_`newname' [w=FACTOR_P]
 			local q_hog = r(sum)
 			
@@ -88,60 +124,15 @@ foreach multiplicador in 1 1.29 2 3.81 4 5.01 8 {
 
 			sum pe_`newname' [w=FACTOR_P]
 			local pe_`newname' = r(mean)
-			noi display "Indice Pobreza: (asignado `ind'): `pe_`newname''"
-			
+			noi display "Indice Pobreza: (asignado `ind', `year', `multiplicador'): `pe_`newname''"
+
 			* Store the values in the collector
 			post collector ("`ind'") ("`year'") (`monto') (`q_hog') (`p_`newname'') (`pe_`newname'')
+			
 			restore
 		}
 	}
 }
-
-* Presupuesto fijo
-foreach divisor in 2 4 8 { 
-	qui foreach ind in log_ingreso_pred_lasso_urru_c2 logingreso_xgboost rankIPM {
-		foreach year in "first" "after" {
-			preserve
-			gen porcentaje_inclusion_sim = porcentaje_inclusion / `divisor'
-			local newname = subinstr("`ind'", "log_ingreso_pred_", "", .)
-			local monto = 4020/12 * `divisor' 
-
-			sort `ind'	
-			gen q_personas = sum(FACTOR_P) 
-			egen tot_personas = sum(FACTOR_P) 
-			gen pos_`newname' = q_personas/tot_personas
-			gen pobre_`newname' = (pos_`newname'<=porcentaje_inclusion_sim)	
-			sum pobre_`newname' [w=FACTOR_P]
-			local q_hog = r(sum)
-			drop q_personas tot_personas
-			
-			gen asignacion_`newname' = 0
-			replace asignacion_`newname' = `monto' if pobre_`newname'==1
-			if "`year'"=="first" {
-				replace asignacion_`newname' = asignacion_`newname' + `monto' // Asignación universal
-			}
-			gen asignacion_`newname'_pc = asignacion_`newname' / TOTPER 
-			gen YPERHG_`newname' = YPERHG + asignacion_`newname'_pc
-			gen p_`newname' = (YPERHG_`newname' < linea_pob)
-			gen p_`newname'_fgt1 = p_`newname' * (1-YPERHG_`newname'/linea_pob)
-			gen p_`newname'_fgt2 = p_`newname' * (1-YPERHG_`newname'/linea_pob)^2
-			
-			gen pe_`newname' = (YPERHG_`newname' < linea_pob_extr)
-			gen pe_`newname'_fgt1 = pe_`newname' * (1-YPERHG_`newname'/linea_pob_extr)
-			gen pe_`newname'_fgt2 = pe_`newname' * (1-YPERHG_`newname'/linea_pob_extr)^2
-			
-			sum p_`newname' [w=FACTOR_P]
-			local p_`newname' = r(mean)
-
-			sum pe_`newname' [w=FACTOR_P]
-			local pe_`newname' = r(mean)
-			noi display "Indice Pobreza: (asignado `ind', `year', `divisor'): `pe_`newname''"
-			
-			* Store the values in the collector
-			post collector ("`ind'") ("`year'") (`monto') (`q_hog') (`p_`newname'') (`pe_`newname'')
-			restore
-		}
-	}
 }
 
 postclose collector
