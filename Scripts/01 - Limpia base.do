@@ -1,7 +1,8 @@
 set seed 825
 set type double
 
-import spss "C:\Users\pilih\Documents\World Bank\Honduras\Replication PMT IPM\2. Data\Data_in\CONSOLIDADA_2023.sav", clear
+import spss "$EPHPM_PATH", clear
+
 drop if QUINTILH==6
 
 gen logingreso = log(YPERHG)
@@ -346,21 +347,22 @@ egen horas = rowtotal(OC_605*)
 * INPREMA o IPM o IHSS o fondo privado de pensiones o seguro
 * médico privado).
 egen cotiza = rowmin(OC620 OC626 OC6201 OC6261) 
-gen privacion_segsoc = !(cotiza==1) if (inrange(EDAD, 18, 65) & CONDACT==1)
-egen privacion_segsoc_h = max(privacion_segsoc), by(HOGAR)
+gen privacion_segsoc_a = !(cotiza==1) if (inrange(EDAD, 18, 65) & CONDACT==1)
+egen privacion_segsoc_a_h = max(privacion_segsoc), by(HOGAR)
 
 * Son privados todos los hogares donde al menos 1 de sus
 * miembros en edad productiva es desocupado
-gen privacion_desocup = (CONDACT==2 & inrange(EDAD, 14, 65))
-egen privacion_desocup_h = max(privacion_desocup), by(HOGAR)
+gen privacion_segsoc_b = (CONDACT==2 & inrange(EDAD, 14, 65))
+egen privacion_segsoc_b_h = max(privacion_segsoc_b), by(HOGAR)
 
+egen privacion_segsoc_h = max(privacion_segsoc_a_h, privacion_segsoc_b_h)
 
 *#######* Sub-empleo 
 
 * Al menos una persona ocupada del hogar que trabaja 40 horas por
 * semana gana menos de un salario mínimo.
-gen privacion_subemp = (horas>40 & YTRAB<SALMIN) if !mi(horas, YTRAB, SALMIN)
-egen privacion_subemp_h = max(privacion_subemp), by(HOGAR)
+gen privacion_subemp_a = (horas>40 & YTRAB<SALMIN) if !mi(horas, YTRAB, SALMIN)
+egen privacion_subemp_a_h = max(privacion_subemp), by(HOGAR)
 
 * todos los miembros del hogar en edad productiva SON desocupados (CONDACT==2),
 * excepto que se trate de personas en condición de inactividad (CONDACT==3).
@@ -373,11 +375,13 @@ egen desocupados_h = total(privacion_ocup), by (HOGAR)
 egen inactivos_h = total(inactivos), by (HOGAR)
 gen privacion_ocup_h = ((q_no_ocup / TOTPER) == 1) if !mi(CONDACT)
 
+egen privacion_subemp_h = max(privacion_subemp_a_h, privacion_ocup_h)
+
 *#######* Trabajo infantil
 
 * Existe al menos un niño de 5 a 13 años de edad que trabaja.
-gen privacion_trabinf = (inrange(EDAD, 5, 13) & CA501==1) if !mi(EDAD, CA501)
-egen privacion_trabinf_h = max(privacion_trabinf), by(HOGAR)
+gen privacion_trabinf1 = (inrange(EDAD, 5, 13) & CA501==1) if !mi(EDAD, CA501)
+egen privacion_trabinf1_h = max(privacion_trabinf), by(HOGAR)
 
 * Existe al menos un niño de 14 o 15 años de edad que trabaja más
 * de 20 horas por semana y no estudia.
@@ -389,6 +393,7 @@ egen privacion_trabadol1_h = max(privacion_trabadol1), by(HOGAR)
 gen privacion_trabadol2 = (inrange(EDAD, 16, 17) & horas>30 & ED03==2) if !mi(EDAD, ED03, horas)
 egen privacion_trabadol2_h = max(privacion_trabadol2), by(HOGAR)
 
+egen privacion_trabinf_h = max(privacion_trabinf1_h, privacion_trabadol1_h, privacion_trabadol2_h)
 
 *###################################
 *######*     VIVIENDA     ##########
@@ -425,10 +430,12 @@ gen personas_por_cuartos = TOTPER / V09
 gen privacion_hacina = (personas_por_cuartos>=3) & !mi(personas_por_cuartos)
 egen privacion_hacina_h = max(privacion_hacina), by(HOGAR)
 
+*######*  Acervo Patrimonial
+gen privacion_patrimonio = .
+
 *********************************************
 ****        Base a nivel hogar           ****
 *********************************************
-
 
 * Generamos ponderador a nivel de hogar (personal * cantidad de miembros)
 *	Esto nos permite replicar las estadisticas de pobreza de personas, 
@@ -442,8 +449,7 @@ keep if hogar==1
 ****           Cálculo del IPM           ****
 *********************************************
 
-gen indice_pobreza_multi = 1/12 * privacion_agua_h +  1/12 * privacion_saneamiento_h + 1/12 * privacion_cocina_h + 1/12 *  privacion_educ_h + 1/12 * privacion_asistencia_h + 1/12 * privacion_alfab_h + 1/24 * privacion_segsoc_h + 1/24 * privacion_desocup_h + 1/24 * privacion_subemp_h + 1/24 * privacion_ocup_h + 1/36 * privacion_trabinf_h + 1/36 * privacion_trabadol1_h + 1/36 * privacion_trabadol2_h + 1/24 * privacion_elec_h + 1/24 * privacion_piso_h + 1/24 * privacion_techo_h + 1/24 * privacion_pared_h + 1/24 * privacion_hacina_h
-
+gen indice_pobreza_multi = 1/12 * privacion_agua_h +  1/12 * privacion_saneamiento_h + 1/12 * privacion_cocina_h + 1/12 *  privacion_educ_h + 1/12 * privacion_asistencia_h + 1/12 * privacion_alfab_h + 1/12 * privacion_segsoc_h + 1/12 * privacion_subemp_h + 1/12 * privacion_trabinf_h + 1/24 * privacion_elec_h + 1/24 * privacion_piso_h + 1/24 * privacion_techo_h + 1/24 * privacion_pared_h + 1/24 * privacion_hacina_h + 1/24 * privacion_patrimonio
 
 drop if indice_pobreza_multi == .
 
