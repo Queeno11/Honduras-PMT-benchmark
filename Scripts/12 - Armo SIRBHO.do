@@ -222,9 +222,9 @@ use "C:\Users\pilih\Documents\World Bank\Honduras\Replication PMT IPM\2. Data\Da
 
 *global vars_pmt_tot Agua2_bien Aire_mal Bici_mal Cable_mal Carro_mal Cocina2_bien Compu_mal Dependencia Ed_diversif_bien Ed_univer_bien EqSonido_mal Estufa_mal Hacinamiento HaySanitario_bien Moto_mal Paredes_bien Pension_bien Piso_mal Refri_mal Sanitario_bien edad_0_5 edad_15_21 edad_60_120 edad_6_14 privacion_alfab_h privacion_asistencia_h privacion_cocina_h privacion_educ_h privacion_saneamiento_h
 
-global vars_pmt_ru privacion_cocina_h privacion_educ_h privacion_alfab_h Piso_mal HaySanitario_bien Cable_mal Moto_mal Refri_mal Carro_mal Compu_mal dv111 Ed_diversif_bien Ed_univer_bien edad_0_5 edad_15_21 edad_6_14 Estufa_mal Agua2_bien Dependencia Paredes_bien Sanitario_bien Bici_mal Aire_mal 
+global vars_pmt_ru Agua2_bien Bici_mal Cable_mal Carro_mal Compu_mal Dependencia dv111 Ed_diversif_bien Ed_univer_bien edad_0_5 edad_15_21 edad_6_14 EqSonido_mal Estufa_mal Hacinamiento HaySanitario_bien Moto_mal Paredes_bien Pension_bien Piso_mal privacion_alfab_h privacion_cocina_h privacion_educ_h Refri_mal Sanitario_bien
 
-keep level1id $vars_pmt_ru ipm ipmo
+keep level1id $vars_pmt_ru ipm ipmo sumipm
 
 * No generamos la variables Dominio 2 y 3 que forman parte del PMT de Urbano pero como en rural no aplica no es un problema.
 * privacion_saneamiento_h habria que generarla si se usa para urbano.
@@ -258,12 +258,6 @@ save "C:\Users\pilih\Documents\World Bank\Honduras\Replication PMT IPM\2. Data\D
 
 use "C:\Users\pilih\Documents\World Bank\Honduras\Replication PMT IPM\2. Data\Data_out\SIRBHO_clean", clear
 
-// estimates use "C:\Users\pilih\Documents\World Bank\Honduras\Replication PMT IPM\2. Data\Data_out\lasso_all_l_2_ur" 
-//
-// predict testbeta 
-// gen ingreso_pred_beta = exp(testbeta)
-// kdensity ingreso_pred_beta
-
 gen key = 1
 gen b_ipm = 1
 gen b_ipmo = 1
@@ -275,15 +269,14 @@ merge m:1 key using "C:\Users\pilih\Documents\World Bank\Honduras\Replication PM
 
 drop key _merge
 
-* Paso nas a cero
-foreach var of varlist _all {
-    replace `var' = 0 if missing(`var')
-}
-
+// * Paso nas a cero
+// foreach var of varlist _all {
+//     replace `var' = 0 if missing(`var')
+// }
 
 gen cons = 1
 
-global vars_pmt_ru $vars_pmt_ru cons ipm ipmo
+global vars_pmt_ru $vars_pmt_ru cons
 
 gen log_ingreso_pred = 0
 foreach var of global vars_pmt_ru {
@@ -292,7 +285,30 @@ foreach var of global vars_pmt_ru {
 
 gen ingreso_pred = exp(log_ingreso_pred)
 
-br log_ingreso_pred*
+
+estimates use "C:\Users\pilih\Documents\World Bank\Honduras\Replication PMT IPM\2. Data\Data_out\lasso_l_2_ur" 
+predict testbeta 
+gen ingreso_pred_beta = exp(testbeta)
+kdensity ingreso_pred_beta
+
+br testbeta log_ingreso_pred
+
+
+hist ingreso_pred_beta if ingreso_pred_beta <=7000, bin(100)
+
+
+
+sort log_ingreso_pred
+br log_ingreso_pred* ingreso_pred ipm
+gen incoh = (ipm==.)
+drop if incoh==1
+
+
+destring sumipm, gen(ipm_continuo) force dpcomma
+spearman ipm_continuo ingreso_pred
+
+
+
 
 preserve
 sort log_ingreso_pred
@@ -302,8 +318,9 @@ restore
 
 
 *** Comparacion de las medias con las de la EPH
-global vars_pmt_ru privacion_cocina_h privacion_educ_h privacion_alfab_h Piso_mal HaySanitario_bien Cable_mal Moto_mal Refri_mal Carro_mal Compu_mal dv111 Ed_diversif_bien Ed_univer_bien edad_0_5 edad_15_21 edad_6_14 Estufa_mal Agua2_bien Dependencia Paredes_bien Sanitario_bien Bici_mal Aire_mal 
+global vars_pmt_ru Agua2_bien Bici_mal Cable_mal Carro_mal Compu_mal Dependencia dv111 Ed_diversif_bien Ed_univer_bien edad_0_5 edad_15_21 edad_6_14 EqSonido_mal Estufa_mal Hacinamiento HaySanitario_bien Moto_mal Paredes_bien Pension_bien Piso_mal privacion_alfab_h privacion_cocina_h privacion_educ_h Refri_mal Sanitario_bien
 
+estimates use
 
 sum $vars_pmt_ru
 
@@ -311,6 +328,9 @@ sum $vars_pmt_ru
 *histogram log_ingreso_pred, bin(100)
 histogram ingreso_pred if ingreso_pred<500000, bin(100)
 kdensity log_ingreso_pred
+
+
+****
 
 
 
