@@ -356,7 +356,7 @@ egen privacion_segsoc_a_h = max(privacion_segsoc), by(HOGAR)
 gen privacion_segsoc_b = (CONDACT==2 & inrange(EDAD, 14, 65))
 egen privacion_segsoc_b_h = max(privacion_segsoc_b), by(HOGAR)
 
-egen privacion_segsoc_h = max(privacion_segsoc_a_h, privacion_segsoc_b_h)
+egen privacion_segsoc_h = rowmax(privacion_segsoc_a_h privacion_segsoc_b_h)
 
 *#######* Sub-empleo 
 
@@ -375,7 +375,7 @@ egen desocupados_h = total(desocup), by (HOGAR)
 egen inactivos_h = total(inactivo), by (HOGAR)
 gen privacion_ocup_h = (desocupados_h == (desocupados_h + ocupados_h))
 
-egen privacion_subemp_h = max(privacion_subemp_a_h, privacion_ocup_h)
+egen privacion_subemp_h = rowmax(privacion_subemp_a_h privacion_ocup_h)
 
 *#######* Trabajo infantil
 
@@ -393,7 +393,7 @@ egen privacion_trabadol1_h = max(privacion_trabadol1), by(HOGAR)
 gen privacion_trabadol2 = (inrange(EDAD, 16, 17) & horas>30 & ED03==2) if !mi(EDAD, ED03, horas)
 egen privacion_trabadol2_h = max(privacion_trabadol2), by(HOGAR)
 
-egen privacion_trabinf_h = max(privacion_trabinf1_h, privacion_trabadol1_h, privacion_trabadol2_h)
+egen privacion_trabinf_h = rowmax(privacion_trabinf1_h privacion_trabadol1_h privacion_trabadol2_h)
 
 *###################################
 *######*     VIVIENDA     ##########
@@ -431,8 +431,9 @@ egen privacion_hacina_h = max(privacion_hacina), by(HOGAR)
 
 *######*  Acervo Patrimonial
 egen suma_mal = rowtotal(TV_mal Estufa_mal Bici_mal Moto_mal Refri_mal Carro_mal Radio_mal)
-gen privacion_patrimonio = (suma_mal <= 2) if !missing(TV_mal, Estufa_mal, Bici_mal, Moto_mal, Refri_mal, Carro_mal, Radio_mal)
-replace privacion_patrimonio = 0 if suma_mal > 2 & !missing(TV_mal, Estufa_mal, Bici_mal, Moto_mal, Refri_mal, Carro_mal, Radio_mal)
+egen suma_mal_nonmi = rownonmiss(TV_mal Estufa_mal Bici_mal Moto_mal Refri_mal Carro_mal Radio_mal)
+replace suma_mal = . if suma_mal_nonmi==0
+gen privacion_patrimonio = (suma_mal <= 2) if suma_mal!=. // suma_mal==. es equivalente a que no haya malos
 
 *********************************************
 ****        Base a nivel hogar           ****
