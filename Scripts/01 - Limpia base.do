@@ -1,7 +1,7 @@
 set seed 825
 set type double
 
-import spss "$EPHPM_PATH", clear
+import spss "C:\Users\pilih\Documents\World Bank\Honduras\Replication PMT IPM\2. Data\Data_in\CONSOLIDADA_2023.sav", clear
 drop if QUINTILH==6
 
 gen logingreso = log(YPERHG)
@@ -60,6 +60,10 @@ drop if (V09 == 99 | V09 == 98 | V09<0)
 winsor V09, gen(V09_w) p(0.01) highonly 
 replace V09 = V09_w
 drop V09_w
+
+sort HOGAR NPER, stable
+
+egen personas_hogar = max(NPER), by(HOGAR)
 
 gen Hacinamiento = (TOTPER / H09) 
 label variable Hacinamiento  "Personas por dormitorio"
@@ -131,7 +135,7 @@ gen Ed_univer_bien = inlist(ED05, 8, 9, 10, 11)
 label variable Ed_univer_bien "Jefe completó educación universitaria"
 
 * Proxy, no tenemos el dato
-gen Compu_bien = (Compu_mal == 1)
+gen Compu_bien = (Compu_mal == 0)
 label variable Compu_bien "Jefe uso computadora el mes pasado" 
 
 // gen Internet_bien = (TIC03 == 1)
@@ -214,18 +218,24 @@ drop trabajo_hogar
 replace OIH01_LPS =0 if OIH01_LPS ==.
 replace OIH01_US =0 if OIH01_US==.
 replace OIH02_LPS =0 if OIH02_LPS ==.
+replace OIH02_US =0 if OIH02_US ==.
 replace OIH05_LPS=0 if OIH05_LPS==.
 replace OIH05_US=0 if OIH05_US==.
+
+replace OIH01_US = OIH01_US * 25.6364
+replace OIH02_US = OIH02_US * 25.6364
+replace OIH03_US = OIH03_US * 25.6364
 
 * Sumamos jubilaciones o pensiones por hogar
 sort HOGAR NPER, stable
 by HOGAR: egen hh_OIH01_LPS = total(OIH01_LPS)
 by HOGAR: egen hh_OIH01_US = total(OIH01_US)
 by HOGAR: egen hh_OIH02_LPS = total(OIH02_LPS)
+by HOGAR: egen hh_OIH02_US = total(OIH02_US)
 by HOGAR: egen hh_OIH05_LPS = total(OIH05_LPS)
 by HOGAR: egen hh_OIH05_US = total(OIH05_US)
 
-egen pen_jub_monto = rowtotal(hh_OIH01_LPS hh_OIH01_US hh_OIH02_LPS hh_OIH05_LPS hh_OIH05_US) 
+egen pen_jub_monto = rowtotal(hh_OIH01_LPS hh_OIH01_US hh_OIH02_LPS hh_OIH05_LPS hh_OIH05_US hh_OIH02_US) 
 
 gen Pension_bien = (pen_jub_monto>0)
 label variable Pension_bien "Reciben pensión o jubilación"
@@ -336,7 +346,7 @@ egen horas = rowtotal(OC_605*)
 * INPREMA o IPM o IHSS o fondo privado de pensiones o seguro
 * médico privado).
 egen cotiza = rowmin(OC620 OC626 OC6201 OC6261) 
-gen privacion_segsoc = !(cotiza==1) if inrange(EDAD, 18, 65)
+gen privacion_segsoc = !(cotiza==1) if (inrange(EDAD, 18, 65) & CONDACT==1)
 egen privacion_segsoc_h = max(privacion_segsoc), by(HOGAR)
 
 * Son privados todos los hogares donde al menos 1 de sus
@@ -354,9 +364,14 @@ egen privacion_subemp_h = max(privacion_subemp), by(HOGAR)
 
 * todos los miembros del hogar en edad productiva SON desocupados (CONDACT==2),
 * excepto que se trate de personas en condición de inactividad (CONDACT==3).
-gen privacion_ocup = (CONDACT==2 | CONDACT==3)
+gen privacion_ocup = (CONDACT==2) if !mi(CONDACT)
 egen q_no_ocup = total(privacion_ocup), by(HOGAR)
-gen privacion_ocup_h = (q_no_ocup / TOTPER == 1)
+gen ocupados = (CONDACT==1) if !mi(CONDACT)
+gen inactivos = (CONDACT==3) if !mi(CONDACT)
+egen ocupados_h = total(ocupados), by (HOGAR)
+egen desocupados_h = total(privacion_ocup), by (HOGAR)
+egen inactivos_h = total(inactivos), by (HOGAR)
+gen privacion_ocup_h = ((q_no_ocup / TOTPER) == 1) if !mi(CONDACT)
 
 *#######* Trabajo infantil
 
@@ -504,4 +519,4 @@ by UR: sum pobreza [w=FACTOR_P]
 * Elimina obs con missings en variables del conjunto 2 (3 observaciones)
 drop if mi(privacion_saneamiento_h, privacion_cocina_h, privacion_educ_h, privacion_asistencia_h, privacion_alfab_h, Piso_mal, Paredes_bien, EqSonido_mal, HaySanitario_bien, Sanitario_bien, Cocina2_bien, Hacinamiento, Cable_mal, Moto_mal, Bici_mal, Dominio_1, Dominio_2, Dominio_3, Pension_bien, Refri_mal, Aire_mal, Carro_mal, Compu_mal, dv111, Ed_diversif_bien, Ed_univer_bien, edad_0_5, edad_15_21, edad_60_120, edad_6_14, Estufa_mal, Agua2_bien, Dependencia)
 
-save "$PATH\Data_out\CONSOLIDADA_2023_clean.dta", replace
+save "C:\Users\pilih\Documents\World Bank\Honduras\Replication PMT IPM\2. Data\Data_out\CONSOLIDADA_2023_clean.dta", replace
